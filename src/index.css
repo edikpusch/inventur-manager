@@ -342,3 +342,36 @@ button {
   margin-top: -8px;
   margin-bottom: 14px;
 }
+
+.signed {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.signed input {
+  flex: 1;
+}
+
+.sign-btn {
+  flex: 0 0 52px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.sign-btn.neg {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.sign-btn.pos {
+  background: #eef1f5;
+  color: var(--muted);
+}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { getProfil, getFiliale, getBogen, saveBogen, uid } from '../store.js'
 import { exportBogen } from '../utils/exportXlsx.js'
 import EintragForm from './EintragForm.jsx'
+import SignedInput from './SignedInput.jsx'
 
 // Keine Begrenzung der Anzahl an Warengruppen/Artikeln.
 
@@ -161,20 +162,18 @@ export default function ErfassungFlow({ go, bogenId }) {
           <div className="row">
             <label className="field">
               <span>Inventurergebnis in %</span>
-              <input
+              <SignedInput
                 value={bogen.ergebnis}
-                onChange={(e) => set({ ergebnis: e.target.value })}
-                placeholder="-1.66"
-                inputMode="decimal"
+                onChange={(v) => set({ ergebnis: v })}
+                placeholder="1,66"
               />
             </label>
             <label className="field">
               <span>Inventurvorgabe in %</span>
-              <input
+              <SignedInput
                 value={bogen.vorgabe}
-                onChange={(e) => set({ vorgabe: e.target.value })}
-                placeholder="-0.89"
-                inputMode="decimal"
+                onChange={(v) => set({ vorgabe: v })}
+                placeholder="0,89"
               />
             </label>
           </div>

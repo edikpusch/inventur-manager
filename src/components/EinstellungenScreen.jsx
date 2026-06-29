@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getProfil, saveProfil, uid } from '../store.js'
+import SignedInput from './SignedInput.jsx'
 
 export default function EinstellungenScreen({ go }) {
   const [profil, setProfil] = useState(() => getProfil())
@@ -84,11 +85,10 @@ export default function EinstellungenScreen({ go }) {
             </label>
             <label className="field">
               <span>Inventurvorgabe / Zielvorgabe in %</span>
-              <input
+              <SignedInput
                 value={f.zielvorgabe || ''}
-                onChange={(e) => updateFiliale(f.id, { zielvorgabe: e.target.value })}
-                placeholder="z. B. -1,50"
-                inputMode="decimal"
+                onChange={(v) => updateFiliale(f.id, { zielvorgabe: v })}
+                placeholder="z. B. 1,50"
               />
             </label>
           </div>

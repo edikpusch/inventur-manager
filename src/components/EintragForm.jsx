@@ -1,4 +1,5 @@
 import { URSACHEN_LISTE, massnahmeFuer } from '../data/ursachenListe.js'
+import SignedInput from './SignedInput.jsx'
 
 const FREITEXT = '__frei__'
 
@@ -73,20 +74,18 @@ export default function EintragForm({ entry, index, label, firstKey, onChange, o
       <div className="row">
         <label className="field">
           <span>Verlust in €</span>
-          <input
+          <SignedInput
             value={entry.verlustEuro}
-            onChange={(e) => set({ verlustEuro: e.target.value })}
-            placeholder="-10392"
-            inputMode="decimal"
+            onChange={(v) => set({ verlustEuro: v })}
+            placeholder="10392"
           />
         </label>
         <label className="field">
           <span>Verlust in %</span>
-          <input
+          <SignedInput
             value={entry.verlustProzent}
-            onChange={(e) => set({ verlustProzent: e.target.value })}
-            placeholder="-3.24"
-            inputMode="decimal"
+            onChange={(v) => set({ verlustProzent: v })}
+            placeholder="3,24"
           />
         </label>
       </div>
