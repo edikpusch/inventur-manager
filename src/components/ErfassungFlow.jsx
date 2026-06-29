@@ -1,8 +1,17 @@
 import { useState } from 'react'
-import { getProfil, getFiliale, getBogen, saveBogen, uid } from '../store.js'
+import {
+  getProfil,
+  getFiliale,
+  getBogen,
+  saveBogen,
+  uid,
+  getVorlagen,
+  saveVorlage,
+} from '../store.js'
 import { exportBogen } from '../utils/exportXlsx.js'
 import EintragForm from './EintragForm.jsx'
 import SignedInput from './SignedInput.jsx'
+import { handleEnterNext } from '../utils/formNav.js'
 
 // Keine Begrenzung der Anzahl an Warengruppen/Artikeln.
 
@@ -63,6 +72,9 @@ export default function ErfassungFlow({ go, bogenId }) {
     }
     return neuerBogen(profil)
   })
+  const [vorlagen, setVorlagen] = useState(() => getVorlagen())
+
+  const addVorlage = (v) => setVorlagen(saveVorlage(v))
 
   const set = (patch) => setBogen((b) => ({ ...b, ...patch }))
 
@@ -132,7 +144,7 @@ export default function ErfassungFlow({ go, bogenId }) {
 
       {/* ---------------- Schritt 1: Kopfdaten ---------------- */}
       {step === 1 && (
-        <div className="card">
+        <div className="card" onKeyDown={handleEnterNext}>
           <h2>Kopfdaten</h2>
           <label className="field">
             <span>Filiale</span>
@@ -156,6 +168,7 @@ export default function ErfassungFlow({ go, bogenId }) {
               value={bogen.inventurNr}
               onChange={(e) => set({ inventurNr: e.target.value })}
               inputMode="numeric"
+              enterKeyHint="next"
             />
           </label>
 
@@ -234,6 +247,7 @@ export default function ErfassungFlow({ go, bogenId }) {
               value={bogen.personaldelikte}
               onChange={(e) => set({ personaldelikte: e.target.value })}
               inputMode="numeric"
+              enterKeyHint="next"
             />
           </label>
 
@@ -243,6 +257,7 @@ export default function ErfassungFlow({ go, bogenId }) {
               value={bogen.kuehlschaeden}
               onChange={(e) => set({ kuehlschaeden: e.target.value })}
               inputMode="decimal"
+              enterKeyHint="done"
             />
           </label>
 
@@ -267,6 +282,8 @@ export default function ErfassungFlow({ go, bogenId }) {
               index={i}
               label="Warengruppe"
               firstKey="warengruppe"
+              vorlagen={vorlagen}
+              onSaveVorlage={addVorlage}
               onChange={(upd) => updateEntry('warengruppen', upd)}
               onRemove={() => removeEntry('warengruppen', e.id)}
             />
@@ -300,6 +317,8 @@ export default function ErfassungFlow({ go, bogenId }) {
               index={i}
               label="Artikel"
               firstKey="artikelName"
+              vorlagen={vorlagen}
+              onSaveVorlage={addVorlage}
               onChange={(upd) => updateEntry('artikel', upd)}
               onRemove={() => removeEntry('artikel', e.id)}
             />

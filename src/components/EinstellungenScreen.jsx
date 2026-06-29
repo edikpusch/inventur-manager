@@ -1,10 +1,14 @@
 import { useState } from 'react'
-import { getProfil, saveProfil, uid } from '../store.js'
+import { getProfil, saveProfil, uid, getVorlagen, deleteVorlage } from '../store.js'
 import SignedInput from './SignedInput.jsx'
+import { handleEnterNext } from '../utils/formNav.js'
 
 export default function EinstellungenScreen({ go }) {
   const [profil, setProfil] = useState(() => getProfil())
   const [saved, setSaved] = useState(false)
+  const [vorlagen, setVorlagen] = useState(() => getVorlagen())
+
+  const removeVorlage = (id) => setVorlagen(deleteVorlage(id))
 
   const update = (patch) => {
     setProfil((p) => ({ ...p, ...patch }))
@@ -59,7 +63,7 @@ export default function EinstellungenScreen({ go }) {
           <p className="muted">Noch keine Filiale angelegt.</p>
         )}
         {profil.filialen.map((f, i) => (
-          <div className="entry" key={f.id}>
+          <div className="entry" key={f.id} onKeyDown={handleEnterNext}>
             <div className="entry-head">
               <strong>Filiale {i + 1}</strong>
               <button className="icon-btn" onClick={() => removeFiliale(f.id)}>
@@ -73,6 +77,7 @@ export default function EinstellungenScreen({ go }) {
                 onChange={(e) => updateFiliale(f.id, { nummer: e.target.value })}
                 placeholder="z.B. 2497"
                 inputMode="numeric"
+                enterKeyHint="next"
               />
             </label>
             <label className="field">
@@ -81,6 +86,7 @@ export default function EinstellungenScreen({ go }) {
                 value={f.mlName}
                 onChange={(e) => updateFiliale(f.id, { mlName: e.target.value })}
                 placeholder="Name des Marktleiters"
+                enterKeyHint="next"
               />
             </label>
             <label className="field">
@@ -96,6 +102,29 @@ export default function EinstellungenScreen({ go }) {
         <button className="btn ghost" onClick={addFiliale}>
           ＋ Filiale hinzufügen
         </button>
+      </div>
+
+      <div className="card">
+        <h2>Eigene Vorlagen</h2>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Selbst gespeicherte Ursachen &amp; Maßnahmen. Erstellt werden sie direkt bei der Erfassung
+          über „★ Als Vorlage speichern".
+        </p>
+        {vorlagen.length === 0 ? (
+          <p className="muted">Noch keine eigenen Vorlagen.</p>
+        ) : (
+          vorlagen.map((v) => (
+            <div className="list-item" key={v.id}>
+              <div className="grow">
+                <div className="title">{v.ursache}</div>
+                <div className="sub">{v.massnahme}</div>
+              </div>
+              <button className="btn small danger" onClick={() => removeVorlage(v.id)}>
+                ✕
+              </button>
+            </div>
+          ))
+        )}
       </div>
 
       <button className="btn" onClick={handleSave}>

@@ -1,7 +1,13 @@
 // Zahlen-Eingabe mit Vorzeichen-Umschalter (±).
 // Auf dem Android-Ziffernblock fehlt das Minus – mit dem Button lässt sich
 // das Vorzeichen umschalten. Ohne Minus = positiv.
-export default function SignedInput({ value, onChange, placeholder, inputMode = 'decimal' }) {
+export default function SignedInput({
+  value,
+  onChange,
+  placeholder,
+  inputMode = 'decimal',
+  enterKeyHint = 'next',
+}) {
   const str = String(value ?? '')
   const isNeg = str.trim().startsWith('-')
 
@@ -29,6 +35,7 @@ export default function SignedInput({ value, onChange, placeholder, inputMode = 
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         inputMode={inputMode}
+        enterKeyHint={enterKeyHint}
       />
     </div>
   )

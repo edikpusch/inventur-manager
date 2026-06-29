@@ -166,6 +166,11 @@ button {
   border: 1px dashed var(--border);
 }
 
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .row {
   display: flex;
   gap: 10px;

@@ -1,10 +1,12 @@
 // localStorage-Zugriff für InventurManager.
 // Keys:
-//   im_profil  -> { vlName, filialen: [{ id, nummer, mlName, zielvorgabe }] }
-//   im_archiv  -> Array gespeicherter Bögen
+//   im_profil    -> { vlName, filialen: [{ id, nummer, mlName, zielvorgabe }] }
+//   im_archiv    -> Array gespeicherter Bögen
+//   im_vorlagen  -> Array eigener Ursache/Maßnahme-Vorlagen [{ id, ursache, massnahme }]
 
 const PROFIL_KEY = 'im_profil'
 const ARCHIV_KEY = 'im_archiv'
+const VORLAGEN_KEY = 'im_vorlagen'
 
 function read(key, fallback) {
   try {
@@ -57,4 +59,29 @@ export function saveBogen(bogen) {
 
 export function deleteBogen(id) {
   write(ARCHIV_KEY, getArchiv().filter((b) => b.id !== id))
+}
+
+// --- Eigene Ursache/Maßnahme-Vorlagen ---
+export function getVorlagen() {
+  return read(VORLAGEN_KEY, [])
+}
+
+// Speichert eine Vorlage. Existiert bereits eine mit gleicher Ursache,
+// wird deren Maßnahme aktualisiert (kein Duplikat).
+export function saveVorlage({ ursache, massnahme }) {
+  const u = (ursache || '').trim()
+  const m = (massnahme || '').trim()
+  if (!u) return getVorlagen()
+  const all = getVorlagen()
+  const idx = all.findIndex((v) => v.ursache.trim().toLowerCase() === u.toLowerCase())
+  if (idx >= 0) all[idx] = { ...all[idx], ursache: u, massnahme: m }
+  else all.push({ id: uid(), ursache: u, massnahme: m })
+  write(VORLAGEN_KEY, all)
+  return all
+}
+
+export function deleteVorlage(id) {
+  const all = getVorlagen().filter((v) => v.id !== id)
+  write(VORLAGEN_KEY, all)
+  return all
 }

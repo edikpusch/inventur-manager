@@ -1,5 +1,6 @@
-import { URSACHEN_LISTE, massnahmeFuer } from '../data/ursachenListe.js'
+import { URSACHEN_LISTE } from '../data/ursachenListe.js'
 import SignedInput from './SignedInput.jsx'
+import { handleEnterNext } from '../utils/formNav.js'
 
 const FREITEXT = '__frei__'
 
@@ -30,29 +31,66 @@ function Checks({ value, frei, onChecks, onFrei }) {
         value={frei}
         onChange={(e) => onFrei(e.target.value)}
         placeholder="Zusatz (optional, z.B. Name)"
+        enterKeyHint="next"
       />
     </>
   )
 }
 
-export default function EintragForm({ entry, index, label, firstKey, onChange, onRemove }) {
+export default function EintragForm({
+  entry,
+  index,
+  label,
+  firstKey,
+  onChange,
+  onRemove,
+  vorlagen = [],
+  onSaveVorlage,
+}) {
   const set = (patch) => onChange({ ...entry, ...patch })
 
-  // Ist die aktuelle Ursache eine bekannte aus der Liste?
-  const istBekannt = URSACHEN_LISTE.some((u) => u.ursache === entry.ursache)
-  const selectValue = entry.ursacheFrei ? FREITEXT : istBekannt ? entry.ursache : entry.ursache ? FREITEXT : ''
+  // Maßnahme zu einer Ursache (feste Liste oder eigene Vorlage) finden.
+  const massnahmeFor = (urs) => {
+    const found =
+      vorlagen.find((v) => v.ursache === urs) || URSACHEN_LISTE.find((u) => u.ursache === urs)
+    return found ? found.massnahme : ''
+  }
+  const istBekannt =
+    URSACHEN_LISTE.some((u) => u.ursache === entry.ursache) ||
+    vorlagen.some((v) => v.ursache === entry.ursache)
+  const selectValue = entry.ursacheFrei
+    ? FREITEXT
+    : istBekannt
+      ? entry.ursache
+      : entry.ursache
+        ? FREITEXT
+        : ''
 
   const handleUrsacheSelect = (val) => {
     if (val === FREITEXT) {
       set({ ursacheFrei: true, ursache: '' })
     } else {
-      // Bekannte Ursache: Maßnahme automatisch vorausfüllen
-      set({ ursacheFrei: false, ursache: val, massnahme: massnahmeFuer(val) })
+      // Bekannte Ursache / Vorlage: Maßnahme automatisch vorausfüllen
+      set({ ursacheFrei: false, ursache: val, massnahme: massnahmeFor(val) })
     }
   }
 
+  // Aktuelle Freitext-Eingabe als Vorlage speicherbar?
+  const kannSpeichern =
+    entry.ursacheFrei && (entry.ursache || '').trim() && (entry.massnahme || '').trim()
+  const bereitsVorlage = vorlagen.some(
+    (v) => v.ursache.trim().toLowerCase() === (entry.ursache || '').trim().toLowerCase()
+  )
+
+  const handleSaveVorlage = () => {
+    if (!kannSpeichern || !onSaveVorlage) return
+    onSaveVorlage({ ursache: entry.ursache.trim(), massnahme: entry.massnahme.trim() })
+    // Eintrag auf die gespeicherte (nun bekannte) Vorlage umstellen
+    set({ ursacheFrei: false })
+  }
+
   return (
-    <div className="entry">
+    <div className="entry" onKeyDown={handleEnterNext}>
       <div className="entry-head">
         <strong>
           {label} {index + 1}
@@ -68,6 +106,7 @@ export default function EintragForm({ entry, index, label, firstKey, onChange, o
           value={entry[firstKey] || ''}
           onChange={(e) => set({ [firstKey]: e.target.value })}
           placeholder={firstKey === 'artikelName' ? 'z.B. Clarkys Pistazien' : 'z.B. 12 oder Süßwaren'}
+          enterKeyHint="next"
         />
       </label>
 
@@ -94,6 +133,15 @@ export default function EintragForm({ entry, index, label, firstKey, onChange, o
         <span>Ursache (Was läuft konkret falsch?)</span>
         <select value={selectValue} onChange={(e) => handleUrsacheSelect(e.target.value)}>
           <option value="">— bitte wählen —</option>
+          {vorlagen.length > 0 && (
+            <optgroup label="★ Eigene Vorlagen">
+              {vorlagen.map((v) => (
+                <option value={v.ursache} key={v.id}>
+                  {v.ursache}
+                </option>
+              ))}
+            </optgroup>
+          )}
           {Object.entries(GRUPPEN).map(([kat, list]) => (
             <optgroup label={kat} key={kat}>
               {list.map((u) => (
@@ -114,6 +162,7 @@ export default function EintragForm({ entry, index, label, firstKey, onChange, o
             value={entry.ursache || ''}
             onChange={(e) => set({ ursache: e.target.value })}
             placeholder="Ursache frei eingeben"
+            enterKeyHint="next"
           />
         </label>
       )}
@@ -126,6 +175,18 @@ export default function EintragForm({ entry, index, label, firstKey, onChange, o
           placeholder="Maßnahme – wird bei Auswahl automatisch vorgeschlagen, frei überschreibbar"
         />
       </label>
+
+      {entry.ursacheFrei && (
+        <button
+          type="button"
+          className="btn ghost small"
+          style={{ marginBottom: 14 }}
+          disabled={!kannSpeichern}
+          onClick={handleSaveVorlage}
+        >
+          {bereitsVorlage ? '★ Vorlage aktualisieren' : '★ Als Vorlage speichern'}
+        </button>
+      )}
 
       <label className="field">
         <span>Umsetzung durch</span>
