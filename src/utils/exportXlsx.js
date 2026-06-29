@@ -99,18 +99,18 @@ export function buildWorkbook(bogen) {
   const differenz = beideBekannt ? Math.round((erg - vor) * 100) / 100 : null
 
   // Hilfs-Setter für Label- und Wertzellen im Kopfbereich.
+  // Wie im Original: weiße Zellen, fette Labels, dünne Rahmen.
   const lab = (row, col, text) => {
     const c = ws.getCell(row, col)
     c.value = text
     c.font = { bold: true, size: 9 }
-    c.fill = GREY
     c.alignment = { vertical: 'middle', wrapText: true }
     c.border = BORDER_ALL
   }
   const val = (row, col, value, kind) => {
     const c = ws.getCell(row, col)
     c.value = value === null || value === undefined ? '' : value
-    c.alignment = { vertical: 'middle' }
+    c.alignment = { vertical: 'middle', wrapText: true }
     c.border = BORDER_ALL
     // Negative Prozent-/Euro-Werte rot (wie im Original)
     const negativ = typeof value === 'number' && value < 0
@@ -119,21 +119,21 @@ export function buildWorkbook(bogen) {
     if (kind === 'eur') c.numFmt = '#,##0.00 "€"'
   }
 
-  // Zeile 1 der Kopfdaten
+  // Kopfdaten – Aufbau exakt wie im Original (2 Zeilen):
+  // Zeile 1: Filiale | Inventur-Nr. | Inventurergebnis % | Inventurvorgabe % | Schlechter als Zielvorgabe
   lab(r, 1, 'Filiale')
   val(r, 2, bogen.filialeNummer)
-  lab(r, 3, 'Datum')
-  val(r, 4, fmtDatumDE(bogen.datum))
-  lab(r, 5, 'Inventur-Nr. im lfd. Jahr')
-  val(r, 6, bogen.inventurNr)
-  lab(r, 7, 'Inventurergebnis in %')
-  val(r, 8, erg, 'pct')
-  // Spalte 9, Zeile 1: Label "Schlechter als Zielvorgabe"
+  lab(r, 3, 'Inventur-Nr. im laufenden Jahr')
+  val(r, 4, bogen.inventurNr)
+  lab(r, 5, 'Inventurergebnis in %')
+  val(r, 6, erg, 'pct')
+  lab(r, 7, 'Inventurvorgabe in %')
+  val(r, 8, vor, 'pct')
   lab(r, 9, 'Schlechter als Zielvorgabe')
-  ws.getRow(r).height = 34
+  ws.getRow(r).height = 38
   r++
 
-  // Zeile 2 der Kopfdaten
+  // Zeile 2: EAS-Anlage | Kamera-Konzept | Personaldelikte | Kühlschäden TS/TK | (Differenz)
   lab(r, 1, 'EAS-Anlage vorhanden')
   val(r, 2, bogen.eas ? 'ja' : 'nein')
   lab(r, 3, 'Kamera-Konzept vorhanden')
@@ -141,9 +141,9 @@ export function buildWorkbook(bogen) {
   val(r, 4, typeof bogen.kamera === 'boolean' ? (bogen.kamera ? 'ja' : 'nein') : bogen.kamera || '')
   lab(r, 5, 'Personaldelikte im Zeitraum')
   val(r, 6, bogen.personaldelikte)
-  lab(r, 7, 'Inventurvorgabe in %')
-  val(r, 8, vor, 'pct')
-  // Spalte 9, Zeile 2: Differenz Ergebnis − Vorgabe (negativ = schlechter)
+  lab(r, 7, 'Kühlschäden TS/ TK')
+  val(r, 8, num(bogen.kuehlschaeden), 'eur')
+  // Spalte 9: Differenz Ergebnis − Vorgabe unter "Schlechter als Zielvorgabe"
   const dCell = ws.getCell(r, 9)
   dCell.value = differenz === null ? '–' : differenz
   if (differenz !== null) dCell.numFmt = '0.00" %"'
@@ -154,14 +154,7 @@ export function buildWorkbook(bogen) {
   }
   dCell.alignment = { vertical: 'middle', horizontal: 'center' }
   dCell.border = BORDER_ALL
-  ws.getRow(r).height = 22
-  r++
-
-  // Zeile 3 der Kopfdaten: Kühlschäden
-  lab(r, 1, 'Kühlschäden TS/TK in €')
-  val(r, 2, num(bogen.kuehlschaeden), 'eur')
-  for (let c = 3; c <= COLS; c++) ws.getCell(r, c).border = BORDER_ALL
-  ws.getRow(r).height = 22
+  ws.getRow(r).height = 38
   r++
 
   r++ // Leerzeile
