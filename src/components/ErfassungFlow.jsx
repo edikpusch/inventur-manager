@@ -1,0 +1,355 @@
+import { useState } from 'react'
+import { getProfil, getFiliale, getBogen, saveBogen, uid } from '../store.js'
+import { exportBogen } from '../utils/exportXlsx.js'
+import EintragForm from './EintragForm.jsx'
+
+const MAX_WG = 5
+const MAX_ART = 10
+
+function heute() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`
+}
+
+function neuerEintrag(firstKey) {
+  return {
+    id: uid(),
+    [firstKey]: '',
+    verlustEuro: '',
+    verlustProzent: '',
+    ursache: '',
+    ursacheFrei: false,
+    massnahme: '',
+    umsetzungChecks: { ML: false, MLV: false, VL: false },
+    umsetzungFrei: '',
+    kontrolleChecks: { ML: false, MLV: false, VL: false },
+    kontrolleFrei: '',
+    datumNachkontrolle: '',
+    io: '',
+  }
+}
+
+function neuerBogen(profil) {
+  const erste = profil.filialen[0] || { id: '', nummer: '' }
+  return {
+    id: uid(),
+    filialeId: erste.id,
+    filialeNummer: erste.nummer,
+    datum: heute(),
+    inventurNr: '1',
+    ergebnis: '',
+    vorgabe: '',
+    eas: true,
+    kamera: true,
+    personaldelikte: '0',
+    kuehlschaeden: '0',
+    warengruppen: [],
+    artikel: [],
+    nameMl: erste.mlName || '',
+    nameVl: profil.vlName || '',
+    createdAt: new Date().toISOString(),
+  }
+}
+
+export default function ErfassungFlow({ go, bogenId }) {
+  const profil = getProfil()
+  const [step, setStep] = useState(1)
+  const [bogen, setBogen] = useState(() => {
+    if (bogenId) {
+      const vorhanden = getBogen(bogenId)
+      if (vorhanden) return vorhanden
+    }
+    return neuerBogen(profil)
+  })
+
+  const set = (patch) => setBogen((b) => ({ ...b, ...patch }))
+
+  // Filiale-Wechsel: Nummer + Namen mitführen
+  const handleFiliale = (id) => {
+    const f = getFiliale(id)
+    set({
+      filialeId: id,
+      filialeNummer: f ? f.nummer : '',
+      nameMl: f && f.mlName ? f.mlName : bogen.nameMl,
+    })
+  }
+
+  // --- Einträge verwalten ---
+  const updateEntry = (listKey, entry) =>
+    set({ [listKey]: bogen[listKey].map((e) => (e.id === entry.id ? entry : e)) })
+  const removeEntry = (listKey, id) =>
+    set({ [listKey]: bogen[listKey].filter((e) => e.id !== id) })
+  const addEntry = (listKey, firstKey, max) => {
+    if (bogen[listKey].length >= max) return
+    set({ [listKey]: [...bogen[listKey], neuerEintrag(firstKey)] })
+  }
+
+  const handleExport = async () => {
+    saveBogen(bogen)
+    try {
+      await exportBogen(bogen)
+    } catch (err) {
+      alert('Export fehlgeschlagen: ' + err.message)
+      return
+    }
+    go('archiv')
+  }
+
+  const schlechter =
+    bogen.ergebnis !== '' && bogen.vorgabe !== '' && Number(bogen.ergebnis) < Number(bogen.vorgabe)
+
+  return (
+    <>
+      <div className="topbar">
+        <button
+          className="back-btn"
+          onClick={() => (step > 1 ? setStep(step - 1) : go('home'))}
+        >
+          ‹ Zurück
+        </button>
+        <h1>Bogen · Schritt {step}/4</h1>
+      </div>
+
+      <div className="step-indicator">
+        {[1, 2, 3, 4].map((s) => (
+          <div className={`dot ${s <= step ? 'active' : ''}`} key={s} />
+        ))}
+      </div>
+
+      {/* ---------------- Schritt 1: Kopfdaten ---------------- */}
+      {step === 1 && (
+        <div className="card">
+          <h2>Kopfdaten</h2>
+          <label className="field">
+            <span>Filiale</span>
+            <select value={bogen.filialeId} onChange={(e) => handleFiliale(e.target.value)}>
+              {profil.filialen.map((f) => (
+                <option value={f.id} key={f.id}>
+                  {f.nummer} {f.mlName ? `– ${f.mlName}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Datum</span>
+            <input type="date" value={bogen.datum} onChange={(e) => set({ datum: e.target.value })} />
+          </label>
+
+          <label className="field">
+            <span>Inventur-Nr. im laufenden Jahr</span>
+            <input
+              value={bogen.inventurNr}
+              onChange={(e) => set({ inventurNr: e.target.value })}
+              inputMode="numeric"
+            />
+          </label>
+
+          <div className="row">
+            <label className="field">
+              <span>Inventurergebnis in %</span>
+              <input
+                value={bogen.ergebnis}
+                onChange={(e) => set({ ergebnis: e.target.value })}
+                placeholder="-1.66"
+                inputMode="decimal"
+              />
+            </label>
+            <label className="field">
+              <span>Inventurvorgabe in %</span>
+              <input
+                value={bogen.vorgabe}
+                onChange={(e) => set({ vorgabe: e.target.value })}
+                placeholder="-0.89"
+                inputMode="decimal"
+              />
+            </label>
+          </div>
+
+          {bogen.ergebnis !== '' && bogen.vorgabe !== '' && (
+            <p className="hint">
+              {schlechter ? (
+                <span className="badge warn">Schlechter als Zielvorgabe</span>
+              ) : (
+                <span className="badge">Im Rahmen der Zielvorgabe</span>
+              )}
+            </p>
+          )}
+
+          <label className="field">
+            <span>EAS-Anlage vorhanden</span>
+            <div className="toggle-group">
+              <button
+                type="button"
+                className={bogen.eas ? 'active green' : ''}
+                onClick={() => set({ eas: true })}
+              >
+                ja
+              </button>
+              <button
+                type="button"
+                className={!bogen.eas ? 'active red' : ''}
+                onClick={() => set({ eas: false })}
+              >
+                nein
+              </button>
+            </div>
+          </label>
+
+          <label className="field">
+            <span>Kamera-Konzept vorhanden</span>
+            <div className="toggle-group">
+              <button
+                type="button"
+                className={bogen.kamera ? 'active green' : ''}
+                onClick={() => set({ kamera: true })}
+              >
+                ja
+              </button>
+              <button
+                type="button"
+                className={!bogen.kamera ? 'active red' : ''}
+                onClick={() => set({ kamera: false })}
+              >
+                nein
+              </button>
+            </div>
+          </label>
+
+          <label className="field">
+            <span>Personaldelikte im Zeitraum</span>
+            <input
+              value={bogen.personaldelikte}
+              onChange={(e) => set({ personaldelikte: e.target.value })}
+              inputMode="numeric"
+            />
+          </label>
+
+          <label className="field">
+            <span>Kühlschäden TS/TK in €</span>
+            <input
+              value={bogen.kuehlschaeden}
+              onChange={(e) => set({ kuehlschaeden: e.target.value })}
+              inputMode="decimal"
+            />
+          </label>
+
+          <button className="btn" onClick={() => setStep(2)}>
+            Weiter →
+          </button>
+        </div>
+      )}
+
+      {/* ---------------- Schritt 2: Warengruppen ---------------- */}
+      {step === 2 && (
+        <div className="card">
+          <h2>Warengruppen</h2>
+          <h3>Analyse der auffälligsten Warengruppen (max. {MAX_WG})</h3>
+          {bogen.warengruppen.length === 0 && (
+            <p className="muted">Noch kein Eintrag. Optional – du kannst auch direkt weiter.</p>
+          )}
+          {bogen.warengruppen.map((e, i) => (
+            <EintragForm
+              key={e.id}
+              entry={e}
+              index={i}
+              label="Warengruppe"
+              firstKey="warengruppe"
+              onChange={(upd) => updateEntry('warengruppen', upd)}
+              onRemove={() => removeEntry('warengruppen', e.id)}
+            />
+          ))}
+          {bogen.warengruppen.length < MAX_WG && (
+            <button
+              className="btn ghost"
+              onClick={() => addEntry('warengruppen', 'warengruppe', MAX_WG)}
+            >
+              ＋ Eintrag hinzufügen
+            </button>
+          )}
+          <div className="nav-buttons">
+            <button className="btn secondary" onClick={() => setStep(1)}>
+              ← Zurück
+            </button>
+            <button className="btn" onClick={() => setStep(3)}>
+              Weiter →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- Schritt 3: Artikel ---------------- */}
+      {step === 3 && (
+        <div className="card">
+          <h2>Artikel</h2>
+          <h3>Analyse der auffälligsten Artikel (max. {MAX_ART})</h3>
+          {bogen.artikel.length === 0 && (
+            <p className="muted">Noch kein Eintrag. Optional – du kannst auch direkt weiter.</p>
+          )}
+          {bogen.artikel.map((e, i) => (
+            <EintragForm
+              key={e.id}
+              entry={e}
+              index={i}
+              label="Artikel"
+              firstKey="artikelName"
+              onChange={(upd) => updateEntry('artikel', upd)}
+              onRemove={() => removeEntry('artikel', e.id)}
+            />
+          ))}
+          {bogen.artikel.length < MAX_ART && (
+            <button className="btn ghost" onClick={() => addEntry('artikel', 'artikelName', MAX_ART)}>
+              ＋ Eintrag hinzufügen
+            </button>
+          )}
+          <div className="nav-buttons">
+            <button className="btn secondary" onClick={() => setStep(2)}>
+              ← Zurück
+            </button>
+            <button className="btn" onClick={() => setStep(4)}>
+              Weiter →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- Schritt 4: Unterschriften & Export ---------------- */}
+      {step === 4 && (
+        <div className="card">
+          <h2>Unterschriften & Export</h2>
+          <label className="field">
+            <span>Name ML</span>
+            <input value={bogen.nameMl} onChange={(e) => set({ nameMl: e.target.value })} />
+          </label>
+          <label className="field">
+            <span>Name VL</span>
+            <input value={bogen.nameVl} onChange={(e) => set({ nameVl: e.target.value })} />
+          </label>
+
+          <div className="card" style={{ background: 'var(--bg)' }}>
+            <h3>Zusammenfassung</h3>
+            <p className="muted">
+              Filiale {bogen.filialeNummer} · {bogen.datum} · Inventur-Nr. {bogen.inventurNr}
+              <br />
+              Ergebnis {bogen.ergebnis || '–'} % / Vorgabe {bogen.vorgabe || '–'} %{' '}
+              {schlechter && <span className="badge warn">schlechter</span>}
+              <br />
+              {bogen.warengruppen.length} Warengruppe(n) · {bogen.artikel.length} Artikel
+            </p>
+          </div>
+
+          <button className="btn green" onClick={handleExport}>
+            ⬇ Als .xlsx exportieren
+          </button>
+          <div className="nav-buttons">
+            <button className="btn secondary" onClick={() => setStep(3)}>
+              ← Zurück
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}

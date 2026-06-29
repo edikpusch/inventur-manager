@@ -1,0 +1,100 @@
+import { useState } from 'react'
+import { getProfil, saveProfil, uid } from '../store.js'
+
+export default function EinstellungenScreen({ go }) {
+  const [profil, setProfil] = useState(() => getProfil())
+  const [saved, setSaved] = useState(false)
+
+  const update = (patch) => {
+    setProfil((p) => ({ ...p, ...patch }))
+    setSaved(false)
+  }
+
+  const updateFiliale = (id, patch) => {
+    update({
+      filialen: profil.filialen.map((f) => (f.id === id ? { ...f, ...patch } : f)),
+    })
+  }
+
+  const addFiliale = () => {
+    update({ filialen: [...profil.filialen, { id: uid(), nummer: '', mlName: '' }] })
+  }
+
+  const removeFiliale = (id) => {
+    update({ filialen: profil.filialen.filter((f) => f.id !== id) })
+  }
+
+  const handleSave = () => {
+    saveProfil(profil)
+    setSaved(true)
+  }
+
+  return (
+    <>
+      <div className="topbar">
+        <button className="back-btn" onClick={() => go('home')}>
+          ‹ Zurück
+        </button>
+        <h1>Einstellungen</h1>
+      </div>
+
+      <div className="card">
+        <h2>Verkaufsleiter</h2>
+        <label className="field">
+          <span>VL-Name</span>
+          <input
+            value={profil.vlName}
+            onChange={(e) => update({ vlName: e.target.value })}
+            placeholder="z.B. Max Mustermann"
+          />
+        </label>
+      </div>
+
+      <div className="card">
+        <h2>Filialen</h2>
+        {profil.filialen.length === 0 && (
+          <p className="muted">Noch keine Filiale angelegt.</p>
+        )}
+        {profil.filialen.map((f, i) => (
+          <div className="entry" key={f.id}>
+            <div className="entry-head">
+              <strong>Filiale {i + 1}</strong>
+              <button className="icon-btn" onClick={() => removeFiliale(f.id)}>
+                Löschen
+              </button>
+            </div>
+            <label className="field">
+              <span>Filiale-Nummer</span>
+              <input
+                value={f.nummer}
+                onChange={(e) => updateFiliale(f.id, { nummer: e.target.value })}
+                placeholder="z.B. 2497"
+                inputMode="numeric"
+              />
+            </label>
+            <label className="field">
+              <span>ML-Name (Marktleiter)</span>
+              <input
+                value={f.mlName}
+                onChange={(e) => updateFiliale(f.id, { mlName: e.target.value })}
+                placeholder="Name des Marktleiters"
+              />
+            </label>
+          </div>
+        ))}
+        <button className="btn ghost" onClick={addFiliale}>
+          ＋ Filiale hinzufügen
+        </button>
+      </div>
+
+      <button className="btn" onClick={handleSave}>
+        Speichern
+      </button>
+      {saved && (
+        <p className="muted" style={{ textAlign: 'center', color: 'var(--green)' }}>
+          ✓ Gespeichert
+        </p>
+      )}
+    </>
+  )
+}
