@@ -217,7 +217,7 @@ export default function EintragForm({
       <div className="row">
         <label className="field">
           <span>Verlust in €</span>
-          <SignedInput value={entry.verlustEuro} onChange={setEuro} placeholder="10392" />
+          <SignedInput value={entry.verlustEuro} onChange={setEuro} placeholder="10392" defaultNegative />
         </label>
         {autoPct ? (
           <label className="field">
@@ -235,6 +235,7 @@ export default function EintragForm({
               value={entry.verlustProzent}
               onChange={(v) => set({ verlustProzent: v })}
               placeholder="3,24"
+              defaultNegative
             />
           </label>
         )}

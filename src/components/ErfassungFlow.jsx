@@ -202,6 +202,7 @@ export default function ErfassungFlow({ go, bogenId }) {
                 value={bogen.ergebnis}
                 onChange={(v) => set({ ergebnis: v })}
                 placeholder="1,66"
+                defaultNegative
               />
             </label>
             <label className="field">
