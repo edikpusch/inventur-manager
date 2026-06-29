@@ -39,7 +39,7 @@ function neuerBogen(profil) {
     datum: heute(),
     inventurNr: '1',
     ergebnis: '',
-    vorgabe: '',
+    vorgabe: erste.zielvorgabe || '',
     eas: true,
     kamera: true,
     personaldelikte: '0',
@@ -65,13 +65,14 @@ export default function ErfassungFlow({ go, bogenId }) {
 
   const set = (patch) => setBogen((b) => ({ ...b, ...patch }))
 
-  // Filiale-Wechsel: Nummer + Namen mitführen
+  // Filiale-Wechsel: Nummer, ML-Name und Zielvorgabe mitführen
   const handleFiliale = (id) => {
     const f = getFiliale(id)
     set({
       filialeId: id,
       filialeNummer: f ? f.nummer : '',
       nameMl: f && f.mlName ? f.mlName : bogen.nameMl,
+      vorgabe: f && f.zielvorgabe ? f.zielvorgabe : bogen.vorgabe,
     })
   }
 

@@ -17,7 +17,9 @@ export default function EinstellungenScreen({ go }) {
   }
 
   const addFiliale = () => {
-    update({ filialen: [...profil.filialen, { id: uid(), nummer: '', mlName: '' }] })
+    update({
+      filialen: [...profil.filialen, { id: uid(), nummer: '', mlName: '', zielvorgabe: '' }],
+    })
   }
 
   const removeFiliale = (id) => {
@@ -78,6 +80,15 @@ export default function EinstellungenScreen({ go }) {
                 value={f.mlName}
                 onChange={(e) => updateFiliale(f.id, { mlName: e.target.value })}
                 placeholder="Name des Marktleiters"
+              />
+            </label>
+            <label className="field">
+              <span>Inventurvorgabe / Zielvorgabe in %</span>
+              <input
+                value={f.zielvorgabe || ''}
+                onChange={(e) => updateFiliale(f.id, { zielvorgabe: e.target.value })}
+                placeholder="z. B. -1,50"
+                inputMode="decimal"
               />
             </label>
           </div>

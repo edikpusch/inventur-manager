@@ -1,6 +1,6 @@
 // localStorage-Zugriff für InventurManager.
 // Keys:
-//   im_profil  -> { vlName, filialen: [{ id, nummer, mlName }] }
+//   im_profil  -> { vlName, filialen: [{ id, nummer, mlName, zielvorgabe }] }
 //   im_archiv  -> Array gespeicherter Bögen
 
 const PROFIL_KEY = 'im_profil'
