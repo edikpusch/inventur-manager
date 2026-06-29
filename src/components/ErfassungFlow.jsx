@@ -32,8 +32,7 @@ function neuerEintrag(firstKey) {
     warengruppeId: '', // nur für Artikel: Referenz auf eine Warengruppe (für %-Berechnung)
     verlustEuro: '',
     verlustProzent: '',
-    ursache: '',
-    ursacheFrei: false,
+    ursachen: [], // Mehrfachauswahl möglich
     massnahme: '',
     umsetzungChecks: { ML: false, MLV: false, VL: false },
     umsetzungFrei: '',
@@ -114,7 +113,7 @@ export default function ErfassungFlow({ go, bogenId }) {
       const wEuro = parseNum(wg && wg.verlustEuro)
       const aEuro = parseNum(a.verlustEuro)
       if (wEuro && wEuro !== 0 && aEuro !== null) {
-        return { ...a, verlustProzent: String(Math.round((aEuro / wEuro) * 10000) / 100) }
+        return { ...a, verlustProzent: String(Math.round((aEuro / Math.abs(wEuro)) * 10000) / 100) }
       }
       return a
     }),

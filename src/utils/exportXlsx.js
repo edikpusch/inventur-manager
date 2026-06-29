@@ -229,11 +229,15 @@ export function buildWorkbook(bogen) {
     eintraege.forEach((e) => {
       const vEuro = num(e.verlustEuro)
       const vProzent = num(e.verlustProzent)
+      // Mehrere Ursachen (abwärtskompatibel zur alten Einzel-Ursache)
+      const ursacheText = Array.isArray(e.ursachen)
+        ? e.ursachen.join('\n')
+        : e.ursache || ''
       const row = [
         e[firstKeyName] ?? '',
         vEuro === null ? '' : vEuro,
         vProzent === null ? '' : vProzent,
-        e.ursache || '',
+        ursacheText,
         e.massnahme || '',
         checksToText(e.umsetzungChecks, e.umsetzungFrei),
         checksToText(e.kontrolleChecks, e.kontrolleFrei),

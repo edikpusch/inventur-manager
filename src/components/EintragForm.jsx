@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { URSACHEN_LISTE } from '../data/ursachenListe.js'
 import { WARENGRUPPEN } from '../data/warengruppenListe.js'
 import SignedInput from './SignedInput.jsx'
@@ -92,10 +93,12 @@ export default function EintragForm({
   const autoPct = isArtikel && !!selWg // %-Wert wird automatisch berechnet
   const wgEuro = selWg ? parseNum(selWg.euro) : null
 
+  // Anteil des Artikel-€-Verlusts an der Warengruppe. Vorzeichen folgt dem
+  // Artikel-€ (Verlust = negativ), daher Division durch den Betrag der WG.
   const berechnePct = (euroVal, wEuro) => {
     const a = parseNum(euroVal)
     if (a === null || wEuro === null || wEuro === 0) return ''
-    return String(Math.round((a / wEuro) * 10000) / 100)
+    return String(Math.round((a / Math.abs(wEuro)) * 10000) / 100)
   }
   // aktuell anzuzeigender (live berechneter) %-Wert für Artikel
   const livePct = autoPct ? berechnePct(entry.verlustEuro, wgEuro) : entry.verlustProzent
@@ -110,44 +113,68 @@ export default function EintragForm({
     set({ warengruppeId: id, verlustProzent: id ? berechnePct(entry.verlustEuro, w) : entry.verlustProzent })
   }
 
+  // --- Ursachen: Mehrfachauswahl ---
+  // Liste der gewählten Ursachen (abwärtskompatibel zur alten Einzel-Ursache).
+  const ursachen = Array.isArray(entry.ursachen)
+    ? entry.ursachen
+    : entry.ursache
+      ? [entry.ursache]
+      : []
+
   // Maßnahme zu einer Ursache (feste Liste oder eigene Vorlage) finden.
   const massnahmeFor = (urs) => {
     const found =
       vorlagen.find((v) => v.ursache === urs) || URSACHEN_LISTE.find((u) => u.ursache === urs)
     return found ? found.massnahme : ''
   }
-  const istBekannt =
-    URSACHEN_LISTE.some((u) => u.ursache === entry.ursache) ||
-    vorlagen.some((v) => v.ursache === entry.ursache)
-  const selectValue = entry.ursacheFrei
-    ? FREITEXT
-    : istBekannt
-      ? entry.ursache
-      : entry.ursache
-        ? FREITEXT
-        : ''
 
-  const handleUrsacheSelect = (val) => {
-    if (val === FREITEXT) {
-      set({ ursacheFrei: true, ursache: '' })
-    } else {
-      // Bekannte Ursache / Vorlage: Maßnahme automatisch vorausfüllen
-      set({ ursacheFrei: false, ursache: val, massnahme: massnahmeFor(val) })
-    }
+  const enthältZeile = (text, line) =>
+    text.split('\n').some((l) => l.trim() === line.trim())
+  const entferneZeile = (text, line) =>
+    text
+      .split('\n')
+      .filter((l) => l.trim() !== line.trim())
+      .join('\n')
+
+  const addUrsache = (text) => {
+    const t = (text || '').trim()
+    if (!t || ursachen.includes(t)) return
+    const m = massnahmeFor(t)
+    let mass = entry.massnahme || ''
+    if (m && !enthältZeile(mass, m)) mass = mass ? `${mass}\n${m}` : m
+    set({ ursachen: [...ursachen, t], ursache: undefined, massnahme: mass })
+  }
+  const removeUrsache = (text) => {
+    const m = massnahmeFor(text)
+    let mass = entry.massnahme || ''
+    if (m && enthältZeile(mass, m)) mass = entferneZeile(mass, m)
+    set({ ursachen: ursachen.filter((u) => u !== text), massnahme: mass })
   }
 
-  // Aktuelle Freitext-Eingabe als Vorlage speicherbar?
-  const kannSpeichern =
-    entry.ursacheFrei && (entry.ursache || '').trim() && (entry.massnahme || '').trim()
-  const bereitsVorlage = vorlagen.some(
-    (v) => v.ursache.trim().toLowerCase() === (entry.ursache || '').trim().toLowerCase()
-  )
+  const handleAddSelect = (val) => {
+    if (!val) return
+    if (val === FREITEXT) {
+      setShowFrei(true)
+      return
+    }
+    addUrsache(val)
+  }
 
-  const handleSaveVorlage = () => {
-    if (!kannSpeichern || !onSaveVorlage) return
-    onSaveVorlage({ ursache: entry.ursache.trim(), massnahme: entry.massnahme.trim() })
-    // Eintrag auf die gespeicherte (nun bekannte) Vorlage umstellen
-    set({ ursacheFrei: false })
+  // Freitext-Ursache (lokaler Eingabezustand)
+  const [showFrei, setShowFrei] = useState(false)
+  const [freiText, setFreiText] = useState('')
+  const freiKannSpeichern = freiText.trim() && (entry.massnahme || '').trim()
+
+  const addFrei = () => {
+    addUrsache(freiText)
+    setFreiText('')
+    setShowFrei(false)
+  }
+  const addFreiUndVorlage = () => {
+    if (onSaveVorlage && freiKannSpeichern) {
+      onSaveVorlage({ ursache: freiText.trim(), massnahme: (entry.massnahme || '').trim() })
+    }
+    addFrei()
   }
 
   return (
@@ -226,6 +253,7 @@ export default function EintragForm({
               readOnly
               value={livePct !== '' ? `${livePct} %` : '—'}
               title="Automatisch aus dem €-Anteil der Warengruppe berechnet"
+              style={parseNum(livePct) < 0 ? { color: 'var(--red)', fontWeight: 700 } : undefined}
             />
           </label>
         ) : (
@@ -247,10 +275,21 @@ export default function EintragForm({
         </p>
       )}
 
-      <label className="field">
-        <span>Ursache (Was läuft konkret falsch?)</span>
-        <select value={selectValue} onChange={(e) => handleUrsacheSelect(e.target.value)}>
-          <option value="">— bitte wählen —</option>
+      <div className="field">
+        <span style={{ display: 'block', fontSize: 13, color: 'var(--muted)', marginBottom: 5 }}>
+          Ursache(n) – Was läuft konkret falsch? (mehrere möglich)
+        </span>
+        {ursachen.length > 0 && (
+          <div className="checks" style={{ marginBottom: 10 }}>
+            {ursachen.map((u) => (
+              <button type="button" key={u} className="active" onClick={() => removeUrsache(u)}>
+                {u} ✕
+              </button>
+            ))}
+          </div>
+        )}
+        <select value="" onChange={(e) => handleAddSelect(e.target.value)}>
+          <option value="">＋ Ursache hinzufügen…</option>
           {vorlagen.length > 0 && (
             <optgroup label="★ Eigene Vorlagen">
               {vorlagen.map((v) => (
@@ -271,18 +310,39 @@ export default function EintragForm({
           ))}
           <option value={FREITEXT}>✎ Eigener Text…</option>
         </select>
-      </label>
+      </div>
 
-      {entry.ursacheFrei && (
-        <label className="field">
-          <span>Eigene Ursache</span>
+      {showFrei && (
+        <div className="field">
+          <span style={{ display: 'block', fontSize: 13, color: 'var(--muted)', marginBottom: 5 }}>
+            Eigene Ursache
+          </span>
           <input
-            value={entry.ursache || ''}
-            onChange={(e) => set({ ursache: e.target.value })}
+            value={freiText}
+            onChange={(e) => setFreiText(e.target.value)}
             placeholder="Ursache frei eingeben"
-            enterKeyHint="next"
+            enterKeyHint="done"
           />
-        </label>
+          <div className="nav-buttons" style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              className="btn secondary small"
+              disabled={!freiText.trim()}
+              onClick={addFrei}
+            >
+              Hinzufügen
+            </button>
+            <button
+              type="button"
+              className="btn ghost small"
+              disabled={!freiKannSpeichern}
+              onClick={addFreiUndVorlage}
+              title="Ursache hinzufügen und als Vorlage speichern"
+            >
+              ★ + Vorlage
+            </button>
+          </div>
+        </div>
       )}
 
       <label className="field">
@@ -293,18 +353,6 @@ export default function EintragForm({
           placeholder="Maßnahme – wird bei Auswahl automatisch vorgeschlagen, frei überschreibbar"
         />
       </label>
-
-      {entry.ursacheFrei && (
-        <button
-          type="button"
-          className="btn ghost small"
-          style={{ marginBottom: 14 }}
-          disabled={!kannSpeichern}
-          onClick={handleSaveVorlage}
-        >
-          {bereitsVorlage ? '★ Vorlage aktualisieren' : '★ Als Vorlage speichern'}
-        </button>
-      )}
 
       <label className="field">
         <span>Umsetzung durch</span>
