@@ -85,3 +85,25 @@ export function deleteVorlage(id) {
   write(VORLAGEN_KEY, all)
   return all
 }
+
+// --- Favoriten für "Datum Nachkontrolle" (z.B. "regelmäßig") ---
+const NK_KEY = 'im_nk_favoriten'
+
+export function getNkFavoriten() {
+  return read(NK_KEY, [])
+}
+
+export function saveNkFavorit(text) {
+  const t = (text || '').trim()
+  if (!t) return getNkFavoriten()
+  const all = getNkFavoriten()
+  if (!all.some((x) => x.toLowerCase() === t.toLowerCase())) all.push(t)
+  write(NK_KEY, all)
+  return all
+}
+
+export function deleteNkFavorit(text) {
+  const all = getNkFavoriten().filter((x) => x !== text)
+  write(NK_KEY, all)
+  return all
+}

@@ -4,6 +4,9 @@ import SignedInput from './SignedInput.jsx'
 import { handleEnterNext } from '../utils/formNav.js'
 
 const FREITEXT = '__frei__'
+const WG_FREITEXT = '__wgfrei__'
+// Vordefinierte Intervalle für "Datum Nachkontrolle"
+const NK_PRESETS = ['regelmäßig', 'wöchentlich', '14-tägig', 'monatlich']
 
 // Gruppiert die Ursachen nach Kategorie für die optgroups.
 const GRUPPEN = URSACHEN_LISTE.reduce((acc, u) => {
@@ -56,8 +59,32 @@ export default function EintragForm({
   vorlagen = [],
   onSaveVorlage,
   warengruppenOptions = [],
+  nkFavoriten = [],
+  onSaveNkFavorit,
 }) {
   const set = (patch) => onChange({ ...entry, ...patch })
+
+  // --- Warengruppe als Dropdown (mit Freitext-Option) ---
+  const wgIstBekannt = WARENGRUPPEN.includes(entry.warengruppe)
+  const wgSelectValue = entry.wgFrei
+    ? WG_FREITEXT
+    : wgIstBekannt
+      ? entry.warengruppe
+      : entry.warengruppe
+        ? WG_FREITEXT
+        : ''
+  const handleWgSelect = (val) => {
+    if (val === WG_FREITEXT) set({ wgFrei: true, warengruppe: '' })
+    else set({ wgFrei: false, warengruppe: val })
+  }
+
+  // --- Datum Nachkontrolle: Freitext + Favoriten ---
+  const nkOptions = [...NK_PRESETS, ...nkFavoriten.filter((f) => !NK_PRESETS.includes(f))]
+  const nkText = (entry.datumNachkontrolle || '').trim()
+  const nkSchonFavorit = nkOptions.some((o) => o.toLowerCase() === nkText.toLowerCase())
+  const handleSaveNk = () => {
+    if (nkText && !nkSchonFavorit && onSaveNkFavorit) onSaveNkFavorit(nkText)
+  }
 
   // --- Artikel: Warengruppe wählen, % automatisch aus €-Anteil berechnen ---
   const isArtikel = firstKey === 'artikelName'
@@ -134,27 +161,43 @@ export default function EintragForm({
         </button>
       </div>
 
-      <label className="field">
-        <span>{label}{firstKey === 'artikelName' ? '-Name' : ''}</span>
-        <input
-          value={entry[firstKey] || ''}
-          onChange={(e) => set({ [firstKey]: e.target.value })}
-          placeholder={
-            firstKey === 'artikelName'
-              ? 'z.B. Clarkys Pistazien'
-              : 'Warengruppe wählen oder eingeben'
-          }
-          list={firstKey === 'warengruppe' ? `wg-list-${entry.id}` : undefined}
-          enterKeyHint="next"
-        />
-        {firstKey === 'warengruppe' && (
-          <datalist id={`wg-list-${entry.id}`}>
-            {WARENGRUPPEN.map((w) => (
-              <option value={w} key={w} />
-            ))}
-          </datalist>
-        )}
-      </label>
+      {firstKey === 'warengruppe' ? (
+        <>
+          <label className="field">
+            <span>Warengruppe</span>
+            <select value={wgSelectValue} onChange={(e) => handleWgSelect(e.target.value)}>
+              <option value="">— bitte wählen —</option>
+              {WARENGRUPPEN.map((w) => (
+                <option value={w} key={w}>
+                  {w}
+                </option>
+              ))}
+              <option value={WG_FREITEXT}>✎ Eigener Text…</option>
+            </select>
+          </label>
+          {entry.wgFrei && (
+            <label className="field">
+              <span>Eigene Warengruppe</span>
+              <input
+                value={entry.warengruppe || ''}
+                onChange={(e) => set({ warengruppe: e.target.value })}
+                placeholder="Warengruppe frei eingeben"
+                enterKeyHint="next"
+              />
+            </label>
+          )}
+        </>
+      ) : (
+        <label className="field">
+          <span>{label}-Name</span>
+          <input
+            value={entry[firstKey] || ''}
+            onChange={(e) => set({ [firstKey]: e.target.value })}
+            placeholder="z.B. Clarkys Pistazien"
+            enterKeyHint="next"
+          />
+        </label>
+      )}
 
       {isArtikel && (
         <label className="field">
@@ -282,15 +325,39 @@ export default function EintragForm({
         onFrei={(v) => set({ kontrolleFrei: v })}
       />
 
+      <label className="field" style={{ marginTop: 14 }}>
+        <span>Datum Nachkontrolle / Intervall</span>
+        <input
+          value={entry.datumNachkontrolle || ''}
+          onChange={(e) => set({ datumNachkontrolle: e.target.value })}
+          placeholder="z.B. 15.03.2026 oder regelmäßig"
+          enterKeyHint="next"
+        />
+        <div className="checks" style={{ marginTop: 8 }}>
+          {nkOptions.map((o) => (
+            <button
+              type="button"
+              key={o}
+              className={nkText.toLowerCase() === o.toLowerCase() ? 'active' : ''}
+              onClick={() => set({ datumNachkontrolle: o })}
+            >
+              {o}
+            </button>
+          ))}
+        </div>
+        {nkText && !nkSchonFavorit && (
+          <button
+            type="button"
+            className="btn ghost small"
+            style={{ marginTop: 8 }}
+            onClick={handleSaveNk}
+          >
+            ★ „{nkText}" als Favorit speichern
+          </button>
+        )}
+      </label>
+
       <div className="row" style={{ marginTop: 14 }}>
-        <label className="field">
-          <span>Datum Nachkontrolle</span>
-          <input
-            type="date"
-            value={entry.datumNachkontrolle || ''}
-            onChange={(e) => set({ datumNachkontrolle: e.target.value })}
-          />
-        </label>
         <label className="field">
           <span>I.O.?</span>
           <div className="toggle-group">

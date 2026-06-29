@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { getProfil, saveProfil, uid, getVorlagen, deleteVorlage } from '../store.js'
+import {
+  getProfil,
+  saveProfil,
+  uid,
+  getVorlagen,
+  deleteVorlage,
+  getNkFavoriten,
+  deleteNkFavorit,
+} from '../store.js'
 import SignedInput from './SignedInput.jsx'
 import { handleEnterNext } from '../utils/formNav.js'
 
@@ -7,8 +15,10 @@ export default function EinstellungenScreen({ go }) {
   const [profil, setProfil] = useState(() => getProfil())
   const [saved, setSaved] = useState(false)
   const [vorlagen, setVorlagen] = useState(() => getVorlagen())
+  const [nkFavoriten, setNkFavoriten] = useState(() => getNkFavoriten())
 
   const removeVorlage = (id) => setVorlagen(deleteVorlage(id))
+  const removeNkFavorit = (t) => setNkFavoriten(deleteNkFavorit(t))
 
   const update = (patch) => {
     setProfil((p) => ({ ...p, ...patch }))
@@ -120,6 +130,28 @@ export default function EinstellungenScreen({ go }) {
                 <div className="sub">{v.massnahme}</div>
               </div>
               <button className="btn small danger" onClick={() => removeVorlage(v.id)}>
+                ✕
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="card">
+        <h2>Favoriten „Datum Nachkontrolle"</h2>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Eigene Einträge wie „regelmäßig". Erstellt werden sie bei der Erfassung über „★ als
+          Favorit speichern". (Voreingestellt: regelmäßig, wöchentlich, 14-tägig, monatlich)
+        </p>
+        {nkFavoriten.length === 0 ? (
+          <p className="muted">Noch keine eigenen Favoriten.</p>
+        ) : (
+          nkFavoriten.map((t) => (
+            <div className="list-item" key={t}>
+              <div className="grow">
+                <div className="title">{t}</div>
+              </div>
+              <button className="btn small danger" onClick={() => removeNkFavorit(t)}>
                 ✕
               </button>
             </div>

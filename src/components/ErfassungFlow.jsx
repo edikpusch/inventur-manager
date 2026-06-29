@@ -7,6 +7,8 @@ import {
   uid,
   getVorlagen,
   saveVorlage,
+  getNkFavoriten,
+  saveNkFavorit,
 } from '../store.js'
 import { exportBogen } from '../utils/exportXlsx.js'
 import EintragForm from './EintragForm.jsx'
@@ -26,6 +28,7 @@ function neuerEintrag(firstKey) {
   return {
     id: uid(),
     [firstKey]: '',
+    wgFrei: false, // nur für Warengruppe: eigener Text statt Auswahl
     warengruppeId: '', // nur für Artikel: Referenz auf eine Warengruppe (für %-Berechnung)
     verlustEuro: '',
     verlustProzent: '',
@@ -74,8 +77,10 @@ export default function ErfassungFlow({ go, bogenId }) {
     return neuerBogen(profil)
   })
   const [vorlagen, setVorlagen] = useState(() => getVorlagen())
+  const [nkFavoriten, setNkFavoriten] = useState(() => getNkFavoriten())
 
   const addVorlage = (v) => setVorlagen(saveVorlage(v))
+  const addNkFavorit = (t) => setNkFavoriten(saveNkFavorit(t))
 
   const set = (patch) => setBogen((b) => ({ ...b, ...patch }))
 
@@ -309,6 +314,8 @@ export default function ErfassungFlow({ go, bogenId }) {
               firstKey="warengruppe"
               vorlagen={vorlagen}
               onSaveVorlage={addVorlage}
+              nkFavoriten={nkFavoriten}
+              onSaveNkFavorit={addNkFavorit}
               onChange={(upd) => updateEntry('warengruppen', upd)}
               onRemove={() => removeEntry('warengruppen', e.id)}
             />
@@ -344,6 +351,8 @@ export default function ErfassungFlow({ go, bogenId }) {
               firstKey="artikelName"
               vorlagen={vorlagen}
               onSaveVorlage={addVorlage}
+              nkFavoriten={nkFavoriten}
+              onSaveNkFavorit={addNkFavorit}
               warengruppenOptions={bogen.warengruppen
                 .filter((w) => (w.warengruppe || '').trim())
                 .map((w) => ({ id: w.id, name: w.warengruppe, euro: w.verlustEuro }))}
