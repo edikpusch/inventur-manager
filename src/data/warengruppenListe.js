@@ -1,0 +1,27 @@
+// Vordefinierte Warengruppen für die Warengruppen-Eingabe.
+// Werden als Auswahlvorschläge angeboten; freie Eingabe bleibt möglich.
+export const WARENGRUPPEN = [
+  'WG2 Süß/Salzgebäck',
+  'WG22 BakeOff',
+  'WG23 Brot/Backwaren',
+  'WG3, 4 Frische',
+  'WG5 Feink./Öl+Essig/Fette',
+  'WG6 Tabak/Zigaretten',
+  'WG6 UWG/Zigaretten',
+  'WG6 UWG/Tabak',
+  'WG7 Zucker',
+  'WG8 Kaffee/Tee',
+  'WG9 Nährmittel',
+  'WG10 Tiefkühlkost',
+  'WG11 Kinderkost/Tiernahr',
+  'WG12 Dauerkons/Fisch/W',
+  'WG13 Getränke',
+  'WG14 Wein/Spirituosen',
+  'WG15 Süßwaren',
+  'WG16 Kosmetik/Papier',
+  'WG17 Wasch-/Putzmittel',
+  'WG18 NonFood',
+  '*WG19/20 NonFood-Pos/R',
+  'WG21 Non-Food Dienstleist.',
+  'WG25 Wurst-SB*',
+]

@@ -1,4 +1,5 @@
 import { URSACHEN_LISTE } from '../data/ursachenListe.js'
+import { WARENGRUPPEN } from '../data/warengruppenListe.js'
 import SignedInput from './SignedInput.jsx'
 import { handleEnterNext } from '../utils/formNav.js'
 
@@ -105,9 +106,21 @@ export default function EintragForm({
         <input
           value={entry[firstKey] || ''}
           onChange={(e) => set({ [firstKey]: e.target.value })}
-          placeholder={firstKey === 'artikelName' ? 'z.B. Clarkys Pistazien' : 'z.B. 12 oder Süßwaren'}
+          placeholder={
+            firstKey === 'artikelName'
+              ? 'z.B. Clarkys Pistazien'
+              : 'Warengruppe wählen oder eingeben'
+          }
+          list={firstKey === 'warengruppe' ? `wg-list-${entry.id}` : undefined}
           enterKeyHint="next"
         />
+        {firstKey === 'warengruppe' && (
+          <datalist id={`wg-list-${entry.id}`}>
+            {WARENGRUPPEN.map((w) => (
+              <option value={w} key={w} />
+            ))}
+          </datalist>
+        )}
       </label>
 
       <div className="row">
