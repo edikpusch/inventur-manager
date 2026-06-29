@@ -11,10 +11,15 @@ const GREY = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } 
 // Spaltenanzahl der Tabellen (A–I)
 const COLS = 9
 
-function fmtProzent(n) {
-  const v = Number(n)
-  if (!isFinite(v)) return ''
-  return v
+// Wandelt eine Eingabe in eine Zahl um. Akzeptiert deutsches Komma
+// ("-1,66") und gibt für leere/ungültige Werte null zurück (→ leere Zelle,
+// NICHT 0), damit nicht ausgefüllte Felder im Bogen leer bleiben.
+function num(v) {
+  if (v === null || v === undefined) return null
+  const s = String(v).trim().replace(',', '.')
+  if (s === '') return null
+  const n = Number(s)
+  return isFinite(n) ? n : null
 }
 
 function checksToText(checks, frei) {
@@ -85,63 +90,70 @@ export function buildWorkbook(bogen) {
   r++
 
   // --- Kopfdaten ---
-  const schlechter = Number(bogen.ergebnis) < Number(bogen.vorgabe)
+  const erg = num(bogen.ergebnis)
+  const vor = num(bogen.vorgabe)
+  // "Schlechter als Zielvorgabe" nur berechnen, wenn beide Werte vorhanden sind.
+  const beideBekannt = erg !== null && vor !== null
+  const schlechter = beideBekannt && erg < vor
 
-  const headRows = [
-    [
-      ['Filiale', bogen.filialeNummer],
-      ['Datum', fmtDatumDE(bogen.datum)],
-      ['Inventur-Nr. im laufenden Jahr', bogen.inventurNr],
-      ['Inventurergebnis in %', fmtProzent(bogen.ergebnis), 'pct'],
-      ['Schlechter als Zielvorgabe', schlechter ? 'Ja' : 'Nein'],
-    ],
-    [
-      ['EAS-Anlage vorhanden', bogen.eas ? 'ja' : 'nein'],
-      ['Kamera-Konzept vorhanden', bogen.kamera ? 'ja' : 'nein'],
-      ['Personaldelikte im Zeitraum', bogen.personaldelikte],
-      ['Inventurvorgabe in %', fmtProzent(bogen.vorgabe), 'pct'],
-      ['Kühlschäden TS/TK', Number(bogen.kuehlschaeden) || 0, 'eur'],
-    ],
-  ]
-
-  for (const pairs of headRows) {
-    // 5 Paare = 10 Zellen, passt genau in A–J? Wir haben 9 Spalten.
-    // Lösung: letzte (Wert) Zelle teilt sich Spalte I, Label in H – wir
-    // legen die Paare auf feste Spaltenpositionen.
-    const positions = [1, 3, 5, 7, 9] // Label-Startspalten
-    pairs.forEach((pair, i) => {
-      const [label, value, kind] = pair
-      const col = positions[i]
-      const labelCell = ws.getCell(r, col)
-      labelCell.value = label
-      labelCell.font = { bold: true, size: 9 }
-      labelCell.alignment = { vertical: 'middle', wrapText: true }
-      labelCell.fill = GREY
-      labelCell.border = BORDER_ALL
-
-      const valCol = col + 1 > COLS ? COLS : col + 1
-      const valCell = ws.getCell(r, valCol === col ? col : valCol)
-      // Für die letzte Spalte (col=9) gibt es keine eigene Wertspalte –
-      // dann Label und Wert kombinieren.
-      if (col === COLS) {
-        labelCell.value = `${label}: ${value}`
-      } else {
-        valCell.value = value
-        valCell.alignment = { vertical: 'middle' }
-        valCell.border = BORDER_ALL
-        if (kind === 'pct') valCell.numFmt = '0.00"%"'
-        if (kind === 'eur') valCell.numFmt = '#,##0.00 "€"'
-      }
-    })
-    ws.getRow(r).height = 22
-    r++
+  // Hilfs-Setter für Label- und Wertzellen im Kopfbereich.
+  const lab = (row, col, text) => {
+    const c = ws.getCell(row, col)
+    c.value = text
+    c.font = { bold: true, size: 9 }
+    c.fill = GREY
+    c.alignment = { vertical: 'middle', wrapText: true }
+    c.border = BORDER_ALL
+  }
+  const val = (row, col, value, kind) => {
+    const c = ws.getCell(row, col)
+    c.value = value === null || value === undefined ? '' : value
+    c.alignment = { vertical: 'middle' }
+    c.border = BORDER_ALL
+    c.font = { size: 9 }
+    if (kind === 'pct') c.numFmt = '0.00" %"'
+    if (kind === 'eur') c.numFmt = '#,##0.00 "€"'
   }
 
-  // Hinweis "Schlechter als Zielvorgabe" farbig hervorheben falls zutreffend
-  if (schlechter) {
-    const c = ws.getCell(r - 2, 9)
-    c.font = { bold: true, color: { argb: 'FFD1242F' }, size: 9 }
-  }
+  // Zeile 1 der Kopfdaten
+  lab(r, 1, 'Filiale')
+  val(r, 2, bogen.filialeNummer)
+  lab(r, 3, 'Datum')
+  val(r, 4, fmtDatumDE(bogen.datum))
+  lab(r, 5, 'Inventur-Nr. im lfd. Jahr')
+  val(r, 6, bogen.inventurNr)
+  lab(r, 7, 'Inventurergebnis in %')
+  val(r, 8, erg, 'pct')
+  const sCell = ws.getCell(r, 9)
+  sCell.value = beideBekannt
+    ? `Schlechter als Zielvorgabe: ${schlechter ? 'Ja' : 'Nein'}`
+    : 'Schlechter als Zielvorgabe: –'
+  sCell.font = { bold: true, size: 9, color: { argb: schlechter ? 'FFD1242F' : 'FF000000' } }
+  sCell.alignment = { vertical: 'middle', wrapText: true }
+  sCell.fill = GREY
+  sCell.border = BORDER_ALL
+  ws.getRow(r).height = 22
+  r++
+
+  // Zeile 2 der Kopfdaten
+  lab(r, 1, 'EAS-Anlage vorhanden')
+  val(r, 2, bogen.eas ? 'ja' : 'nein')
+  lab(r, 3, 'Kamera-Konzept vorhanden')
+  val(r, 4, bogen.kamera ? 'ja' : 'nein')
+  lab(r, 5, 'Personaldelikte im Zeitraum')
+  val(r, 6, bogen.personaldelikte)
+  lab(r, 7, 'Inventurvorgabe in %')
+  val(r, 8, vor, 'pct')
+  ws.getCell(r, 9).border = BORDER_ALL
+  ws.getRow(r).height = 22
+  r++
+
+  // Zeile 3 der Kopfdaten: Kühlschäden
+  lab(r, 1, 'Kühlschäden TS/TK in €')
+  val(r, 2, num(bogen.kuehlschaeden), 'eur')
+  for (let c = 3; c <= COLS; c++) ws.getCell(r, c).border = BORDER_ALL
+  ws.getRow(r).height = 22
+  r++
 
   r++ // Leerzeile
 
@@ -213,10 +225,12 @@ export function buildWorkbook(bogen) {
 
     // Datenzeilen
     eintraege.forEach((e) => {
+      const vEuro = num(e.verlustEuro)
+      const vProzent = num(e.verlustProzent)
       const row = [
         e[firstKeyName] ?? '',
-        Number(e.verlustEuro),
-        Number(e.verlustProzent),
+        vEuro === null ? '' : vEuro,
+        vProzent === null ? '' : vProzent,
         e.ursache || '',
         e.massnahme || '',
         checksToText(e.umsetzungChecks, e.umsetzungFrei),
@@ -232,11 +246,11 @@ export function buildWorkbook(bogen) {
         cell.border = BORDER_ALL
         if (i === 1) {
           cell.numFmt = '#,##0.00 "€"'
-          if (Number(e.verlustEuro) < 0) cell.font = { size: 9, color: { argb: 'FFD1242F' } }
+          if (vEuro !== null && vEuro < 0) cell.font = { size: 9, color: { argb: 'FFD1242F' } }
         }
         if (i === 2) {
-          cell.numFmt = '0.00"%"'
-          if (Number(e.verlustProzent) < 0) cell.font = { size: 9, color: { argb: 'FFD1242F' } }
+          cell.numFmt = '0.00" %"'
+          if (vProzent !== null && vProzent < 0) cell.font = { size: 9, color: { argb: 'FFD1242F' } }
         }
       })
       ws.getRow(r).height = 34
