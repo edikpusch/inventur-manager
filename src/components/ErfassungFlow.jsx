@@ -3,8 +3,7 @@ import { getProfil, getFiliale, getBogen, saveBogen, uid } from '../store.js'
 import { exportBogen } from '../utils/exportXlsx.js'
 import EintragForm from './EintragForm.jsx'
 
-const MAX_WG = 5
-const MAX_ART = 10
+// Keine Begrenzung der Anzahl an Warengruppen/Artikeln.
 
 function heute() {
   const d = new Date()
@@ -81,8 +80,7 @@ export default function ErfassungFlow({ go, bogenId }) {
     set({ [listKey]: bogen[listKey].map((e) => (e.id === entry.id ? entry : e)) })
   const removeEntry = (listKey, id) =>
     set({ [listKey]: bogen[listKey].filter((e) => e.id !== id) })
-  const addEntry = (listKey, firstKey, max) => {
-    if (bogen[listKey].length >= max) return
+  const addEntry = (listKey, firstKey) => {
     set({ [listKey]: [...bogen[listKey], neuerEintrag(firstKey)] })
   }
 
@@ -258,7 +256,7 @@ export default function ErfassungFlow({ go, bogenId }) {
       {step === 2 && (
         <div className="card">
           <h2>Warengruppen</h2>
-          <h3>Analyse der auffälligsten Warengruppen (max. {MAX_WG})</h3>
+          <h3>Analyse der auffälligsten Warengruppen</h3>
           {bogen.warengruppen.length === 0 && (
             <p className="muted">Noch kein Eintrag. Optional – du kannst auch direkt weiter.</p>
           )}
@@ -273,14 +271,9 @@ export default function ErfassungFlow({ go, bogenId }) {
               onRemove={() => removeEntry('warengruppen', e.id)}
             />
           ))}
-          {bogen.warengruppen.length < MAX_WG && (
-            <button
-              className="btn ghost"
-              onClick={() => addEntry('warengruppen', 'warengruppe', MAX_WG)}
-            >
-              ＋ Eintrag hinzufügen
-            </button>
-          )}
+          <button className="btn ghost" onClick={() => addEntry('warengruppen', 'warengruppe')}>
+            ＋ Eintrag hinzufügen
+          </button>
           <div className="nav-buttons">
             <button className="btn secondary" onClick={() => setStep(1)}>
               ← Zurück
@@ -296,7 +289,7 @@ export default function ErfassungFlow({ go, bogenId }) {
       {step === 3 && (
         <div className="card">
           <h2>Artikel</h2>
-          <h3>Analyse der auffälligsten Artikel (max. {MAX_ART})</h3>
+          <h3>Analyse der auffälligsten Artikel</h3>
           {bogen.artikel.length === 0 && (
             <p className="muted">Noch kein Eintrag. Optional – du kannst auch direkt weiter.</p>
           )}
@@ -311,11 +304,9 @@ export default function ErfassungFlow({ go, bogenId }) {
               onRemove={() => removeEntry('artikel', e.id)}
             />
           ))}
-          {bogen.artikel.length < MAX_ART && (
-            <button className="btn ghost" onClick={() => addEntry('artikel', 'artikelName', MAX_ART)}>
-              ＋ Eintrag hinzufügen
-            </button>
-          )}
+          <button className="btn ghost" onClick={() => addEntry('artikel', 'artikelName')}>
+            ＋ Eintrag hinzufügen
+          </button>
           <div className="nav-buttons">
             <button className="btn secondary" onClick={() => setStep(2)}>
               ← Zurück
