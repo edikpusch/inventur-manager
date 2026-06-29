@@ -112,7 +112,9 @@ export function buildWorkbook(bogen) {
     c.value = value === null || value === undefined ? '' : value
     c.alignment = { vertical: 'middle' }
     c.border = BORDER_ALL
-    c.font = { size: 9 }
+    // Negative Prozent-/Euro-Werte rot (wie im Original)
+    const negativ = typeof value === 'number' && value < 0
+    c.font = { size: 9, color: { argb: negativ ? 'FFD1242F' : 'FF000000' } }
     if (kind === 'pct') c.numFmt = '0.00" %"'
     if (kind === 'eur') c.numFmt = '#,##0.00 "€"'
   }
@@ -135,7 +137,8 @@ export function buildWorkbook(bogen) {
   lab(r, 1, 'EAS-Anlage vorhanden')
   val(r, 2, bogen.eas ? 'ja' : 'nein')
   lab(r, 3, 'Kamera-Konzept vorhanden')
-  val(r, 4, bogen.kamera ? 'ja' : 'nein')
+  // kamera kann boolean (Altbestand) oder 'groß'|'klein'|'nein' sein
+  val(r, 4, typeof bogen.kamera === 'boolean' ? (bogen.kamera ? 'ja' : 'nein') : bogen.kamera || '')
   lab(r, 5, 'Personaldelikte im Zeitraum')
   val(r, 6, bogen.personaldelikte)
   lab(r, 7, 'Inventurvorgabe in %')

@@ -52,7 +52,7 @@ function neuerBogen(profil) {
     ergebnis: '',
     vorgabe: erste.zielvorgabe || '',
     eas: true,
-    kamera: true,
+    kamera: 'groß', // 'groß' | 'klein' | 'nein'
     personaldelikte: '0',
     kuehlschaeden: '0',
     warengruppen: [],
@@ -244,15 +244,22 @@ export default function ErfassungFlow({ go, bogenId }) {
             <div className="toggle-group">
               <button
                 type="button"
-                className={bogen.kamera ? 'active green' : ''}
-                onClick={() => set({ kamera: true })}
+                className={bogen.kamera === 'groß' ? 'active green' : ''}
+                onClick={() => set({ kamera: 'groß' })}
               >
-                ja
+                groß
               </button>
               <button
                 type="button"
-                className={!bogen.kamera ? 'active red' : ''}
-                onClick={() => set({ kamera: false })}
+                className={bogen.kamera === 'klein' ? 'active green' : ''}
+                onClick={() => set({ kamera: 'klein' })}
+              >
+                klein
+              </button>
+              <button
+                type="button"
+                className={bogen.kamera === 'nein' ? 'active red' : ''}
+                onClick={() => set({ kamera: 'nein' })}
               >
                 nein
               </button>
