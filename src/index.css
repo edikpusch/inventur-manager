@@ -114,6 +114,12 @@ textarea {
   min-height: 64px;
 }
 
+input[readonly] {
+  background: #f0f2f5;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 button {
   font-family: inherit;
 }

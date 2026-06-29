@@ -26,6 +26,7 @@ function neuerEintrag(firstKey) {
   return {
     id: uid(),
     [firstKey]: '',
+    warengruppeId: '', // nur für Artikel: Referenz auf eine Warengruppe (für %-Berechnung)
     verlustEuro: '',
     verlustProzent: '',
     ursache: '',
@@ -98,10 +99,27 @@ export default function ErfassungFlow({ go, bogenId }) {
     set({ [listKey]: [...bogen[listKey], neuerEintrag(firstKey)] })
   }
 
+  // Artikel-Prozente aus dem €-Anteil der gewählten Warengruppe neu berechnen,
+  // damit der Export auch nach späteren Änderungen korrekt ist.
+  const mitArtikelProzenten = (b) => ({
+    ...b,
+    artikel: b.artikel.map((a) => {
+      if (!a.warengruppeId) return a
+      const wg = b.warengruppen.find((w) => w.id === a.warengruppeId)
+      const wEuro = parseNum(wg && wg.verlustEuro)
+      const aEuro = parseNum(a.verlustEuro)
+      if (wEuro && wEuro !== 0 && aEuro !== null) {
+        return { ...a, verlustProzent: String(Math.round((aEuro / wEuro) * 10000) / 100) }
+      }
+      return a
+    }),
+  })
+
   const handleExport = async () => {
-    saveBogen(bogen)
+    const fertig = mitArtikelProzenten(bogen)
+    saveBogen(fertig)
     try {
-      await exportBogen(bogen)
+      await exportBogen(fertig)
     } catch (err) {
       alert('Export fehlgeschlagen: ' + err.message)
       return
@@ -319,6 +337,9 @@ export default function ErfassungFlow({ go, bogenId }) {
               firstKey="artikelName"
               vorlagen={vorlagen}
               onSaveVorlage={addVorlage}
+              warengruppenOptions={bogen.warengruppen
+                .filter((w) => (w.warengruppe || '').trim())
+                .map((w) => ({ id: w.id, name: w.warengruppe, euro: w.verlustEuro }))}
               onChange={(upd) => updateEntry('artikel', upd)}
               onRemove={() => removeEntry('artikel', e.id)}
             />

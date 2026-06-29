@@ -38,6 +38,14 @@ function Checks({ value, frei, onChecks, onFrei }) {
   )
 }
 
+// Zahl parsen (deutsches Komma erlaubt), leer/ungültig -> null
+function parseNum(v) {
+  const s = String(v ?? '').trim().replace(',', '.')
+  if (s === '' || s === '-') return null
+  const n = Number(s)
+  return isFinite(n) ? n : null
+}
+
 export default function EintragForm({
   entry,
   index,
@@ -47,8 +55,33 @@ export default function EintragForm({
   onRemove,
   vorlagen = [],
   onSaveVorlage,
+  warengruppenOptions = [],
 }) {
   const set = (patch) => onChange({ ...entry, ...patch })
+
+  // --- Artikel: Warengruppe wählen, % automatisch aus €-Anteil berechnen ---
+  const isArtikel = firstKey === 'artikelName'
+  const selWg = warengruppenOptions.find((o) => o.id === entry.warengruppeId) || null
+  const autoPct = isArtikel && !!selWg // %-Wert wird automatisch berechnet
+  const wgEuro = selWg ? parseNum(selWg.euro) : null
+
+  const berechnePct = (euroVal, wEuro) => {
+    const a = parseNum(euroVal)
+    if (a === null || wEuro === null || wEuro === 0) return ''
+    return String(Math.round((a / wEuro) * 10000) / 100)
+  }
+  // aktuell anzuzeigender (live berechneter) %-Wert für Artikel
+  const livePct = autoPct ? berechnePct(entry.verlustEuro, wgEuro) : entry.verlustProzent
+
+  const setEuro = (v) => {
+    if (autoPct) set({ verlustEuro: v, verlustProzent: berechnePct(v, wgEuro) })
+    else set({ verlustEuro: v })
+  }
+  const selectWg = (id) => {
+    const o = warengruppenOptions.find((x) => x.id === id) || null
+    const w = o ? parseNum(o.euro) : null
+    set({ warengruppeId: id, verlustProzent: id ? berechnePct(entry.verlustEuro, w) : entry.verlustProzent })
+  }
 
   // Maßnahme zu einer Ursache (feste Liste oder eigene Vorlage) finden.
   const massnahmeFor = (urs) => {
@@ -123,24 +156,52 @@ export default function EintragForm({
         )}
       </label>
 
+      {isArtikel && (
+        <label className="field">
+          <span>Warengruppe (für %-Berechnung)</span>
+          <select value={entry.warengruppeId || ''} onChange={(e) => selectWg(e.target.value)}>
+            <option value="">— ohne / % manuell —</option>
+            {warengruppenOptions.map((o) => (
+              <option value={o.id} key={o.id}>
+                {o.name}
+                {parseNum(o.euro) !== null ? ` (${o.euro} €)` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <div className="row">
         <label className="field">
           <span>Verlust in €</span>
-          <SignedInput
-            value={entry.verlustEuro}
-            onChange={(v) => set({ verlustEuro: v })}
-            placeholder="10392"
-          />
+          <SignedInput value={entry.verlustEuro} onChange={setEuro} placeholder="10392" />
         </label>
-        <label className="field">
-          <span>Verlust in %</span>
-          <SignedInput
-            value={entry.verlustProzent}
-            onChange={(v) => set({ verlustProzent: v })}
-            placeholder="3,24"
-          />
-        </label>
+        {autoPct ? (
+          <label className="field">
+            <span>Verlust in % (auto)</span>
+            <input
+              readOnly
+              value={livePct !== '' ? `${livePct} %` : '—'}
+              title="Automatisch aus dem €-Anteil der Warengruppe berechnet"
+            />
+          </label>
+        ) : (
+          <label className="field">
+            <span>Verlust in %</span>
+            <SignedInput
+              value={entry.verlustProzent}
+              onChange={(v) => set({ verlustProzent: v })}
+              placeholder="3,24"
+            />
+          </label>
+        )}
       </div>
+      {autoPct && (
+        <p className="hint">
+          {selWg.name} {parseNum(selWg.euro) !== null ? `${selWg.euro} €` : ''} · Anteil dieses
+          Artikels {livePct !== '' ? `${livePct} %` : '—'}
+        </p>
+      )}
 
       <label className="field">
         <span>Ursache (Was läuft konkret falsch?)</span>
