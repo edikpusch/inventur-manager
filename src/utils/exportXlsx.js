@@ -95,6 +95,8 @@ export function buildWorkbook(bogen) {
   // "Schlechter als Zielvorgabe" nur berechnen, wenn beide Werte vorhanden sind.
   const beideBekannt = erg !== null && vor !== null
   const schlechter = beideBekannt && erg < vor
+  // Differenz Inventurergebnis − Inventurvorgabe (negativ = schlechter als Vorgabe).
+  const differenz = beideBekannt ? Math.round((erg - vor) * 100) / 100 : null
 
   // Hilfs-Setter für Label- und Wertzellen im Kopfbereich.
   const lab = (row, col, text) => {
@@ -124,15 +126,9 @@ export function buildWorkbook(bogen) {
   val(r, 6, bogen.inventurNr)
   lab(r, 7, 'Inventurergebnis in %')
   val(r, 8, erg, 'pct')
-  const sCell = ws.getCell(r, 9)
-  sCell.value = beideBekannt
-    ? `Schlechter als Zielvorgabe: ${schlechter ? 'Ja' : 'Nein'}`
-    : 'Schlechter als Zielvorgabe: –'
-  sCell.font = { bold: true, size: 9, color: { argb: schlechter ? 'FFD1242F' : 'FF000000' } }
-  sCell.alignment = { vertical: 'middle', wrapText: true }
-  sCell.fill = GREY
-  sCell.border = BORDER_ALL
-  ws.getRow(r).height = 22
+  // Spalte 9, Zeile 1: Label "Schlechter als Zielvorgabe"
+  lab(r, 9, 'Schlechter als Zielvorgabe')
+  ws.getRow(r).height = 34
   r++
 
   // Zeile 2 der Kopfdaten
@@ -144,7 +140,17 @@ export function buildWorkbook(bogen) {
   val(r, 6, bogen.personaldelikte)
   lab(r, 7, 'Inventurvorgabe in %')
   val(r, 8, vor, 'pct')
-  ws.getCell(r, 9).border = BORDER_ALL
+  // Spalte 9, Zeile 2: Differenz Ergebnis − Vorgabe (negativ = schlechter)
+  const dCell = ws.getCell(r, 9)
+  dCell.value = differenz === null ? '–' : differenz
+  if (differenz !== null) dCell.numFmt = '0.00" %"'
+  dCell.font = {
+    bold: true,
+    size: 11,
+    color: { argb: differenz !== null && differenz < 0 ? 'FFD1242F' : 'FF000000' },
+  }
+  dCell.alignment = { vertical: 'middle', horizontal: 'center' }
+  dCell.border = BORDER_ALL
   ws.getRow(r).height = 22
   r++
 

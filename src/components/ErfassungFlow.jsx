@@ -97,8 +97,20 @@ export default function ErfassungFlow({ go, bogenId }) {
     go('archiv')
   }
 
-  const schlechter =
-    bogen.ergebnis !== '' && bogen.vorgabe !== '' && Number(bogen.ergebnis) < Number(bogen.vorgabe)
+  // Zahl parsen (deutsches Komma erlaubt), leer/ungültig -> null
+  const parseNum = (v) => {
+    const s = String(v ?? '').trim().replace(',', '.')
+    if (s === '') return null
+    const n = Number(s)
+    return isFinite(n) ? n : null
+  }
+  const ergNum = parseNum(bogen.ergebnis)
+  const vorNum = parseNum(bogen.vorgabe)
+  const beideBekannt = ergNum !== null && vorNum !== null
+  const schlechter = beideBekannt && ergNum < vorNum
+  const differenz = beideBekannt ? Math.round((ergNum - vorNum) * 100) / 100 : null
+  const differenzText =
+    differenz === null ? null : `${differenz.toLocaleString('de-DE', { minimumFractionDigits: 2 })} %`
 
   return (
     <>
@@ -168,12 +180,12 @@ export default function ErfassungFlow({ go, bogenId }) {
             </label>
           </div>
 
-          {bogen.ergebnis !== '' && bogen.vorgabe !== '' && (
+          {beideBekannt && (
             <p className="hint">
               {schlechter ? (
-                <span className="badge warn">Schlechter als Zielvorgabe</span>
+                <span className="badge warn">Schlechter als Zielvorgabe · {differenzText}</span>
               ) : (
-                <span className="badge">Im Rahmen der Zielvorgabe</span>
+                <span className="badge">Im Rahmen der Zielvorgabe · {differenzText}</span>
               )}
             </p>
           )}
@@ -334,7 +346,9 @@ export default function ErfassungFlow({ go, bogenId }) {
               Filiale {bogen.filialeNummer} · {bogen.datum} · Inventur-Nr. {bogen.inventurNr}
               <br />
               Ergebnis {bogen.ergebnis || '–'} % / Vorgabe {bogen.vorgabe || '–'} %{' '}
-              {schlechter && <span className="badge warn">schlechter</span>}
+              {differenzText && (
+                <span className={`badge ${schlechter ? 'warn' : ''}`}>Diff. {differenzText}</span>
+              )}
               <br />
               {bogen.warengruppen.length} Warengruppe(n) · {bogen.artikel.length} Artikel
             </p>
