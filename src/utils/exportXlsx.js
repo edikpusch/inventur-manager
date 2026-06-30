@@ -22,6 +22,15 @@ function num(v) {
   return isFinite(n) ? n : null
 }
 
+// Prozentwert als deutscher Text "-3,59 %".
+// WICHTIG: Docs@Work (iPad/iPhone) interpretiert JEDES "%" in einem Zahlenformat
+// als echtes Prozentformat und multipliziert mit 100 (zeigt 35 als 3500 %).
+// Deshalb schreiben wir Prozente als fertigen Text – ganz ohne Zahlenformat.
+function fmtProzentStr(n) {
+  if (n === null || n === undefined || n === '' || isNaN(Number(n))) return ''
+  return Number(n).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' %'
+}
+
 // Berechnet die Artikel-Verlust-Prozente immer frisch aus dem €-Anteil an der
 // gewählten Warengruppe. Vorzeichen folgt dem Artikel-€ (Verlust = negativ),
 // daher Division durch den Betrag der Warengruppe. Wird bei JEDEM Export
@@ -132,13 +141,18 @@ export function buildWorkbook(bogenInput) {
   }
   const val = (row, col, value, kind) => {
     const c = ws.getCell(row, col)
-    c.value = value === null || value === undefined ? '' : value
     c.alignment = { vertical: 'middle', wrapText: true }
     c.border = BORDER_ALL
-    // Negative Prozent-/Euro-Werte rot (wie im Original)
+    if (kind === 'pct') {
+      // Prozent als Text (siehe fmtProzentStr) – kein Zahlenformat
+      const n = typeof value === 'number' ? value : num(value)
+      c.value = n === null ? '' : fmtProzentStr(n)
+      c.font = { size: 9, color: { argb: n !== null && n < 0 ? 'FFD1242F' : 'FF000000' } }
+      return
+    }
+    c.value = value === null || value === undefined ? '' : value
     const negativ = typeof value === 'number' && value < 0
     c.font = { size: 9, color: { argb: negativ ? 'FFD1242F' : 'FF000000' } }
-    if (kind === 'pct') c.numFmt = '0.00" %"'
     if (kind === 'eur') c.numFmt = '#,##0.00 "€"'
   }
 
@@ -168,8 +182,7 @@ export function buildWorkbook(bogenInput) {
   val(r, 8, num(bogen.kuehlschaeden), 'eur')
   // Spalte 9: Differenz Ergebnis − Vorgabe unter "Schlechter als Zielvorgabe"
   const dCell = ws.getCell(r, 9)
-  dCell.value = differenz === null ? '–' : differenz
-  if (differenz !== null) dCell.numFmt = '0.00" %"'
+  dCell.value = differenz === null ? '–' : fmtProzentStr(differenz)
   dCell.font = {
     bold: true,
     size: 11,
@@ -259,7 +272,7 @@ export function buildWorkbook(bogenInput) {
       const row = [
         e[firstKeyName] ?? '',
         vEuro === null ? '' : vEuro,
-        vProzent === null ? '' : vProzent,
+        fmtProzentStr(vProzent), // Prozent als Text (Docs@Work-sicher)
         ursacheText,
         e.massnahme || '',
         checksToText(e.umsetzungChecks, e.umsetzungFrei),
@@ -278,7 +291,7 @@ export function buildWorkbook(bogenInput) {
           if (vEuro !== null && vEuro < 0) cell.font = { size: 9, color: { argb: 'FFD1242F' } }
         }
         if (i === 2) {
-          cell.numFmt = '0.00" %"'
+          // Prozent ist bereits Text; nur Farbe für negative Werte
           if (vProzent !== null && vProzent < 0) cell.font = { size: 9, color: { argb: 'FFD1242F' } }
         }
       })
