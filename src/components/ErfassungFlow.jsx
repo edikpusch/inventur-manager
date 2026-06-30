@@ -10,7 +10,7 @@ import {
   getNkFavoriten,
   saveNkFavorit,
 } from '../store.js'
-import { exportBogen } from '../utils/exportXlsx.js'
+import { exportBogen, recomputeArtikelProzente } from '../utils/exportXlsx.js'
 import EintragForm from './EintragForm.jsx'
 import SignedInput from './SignedInput.jsx'
 import { handleEnterNext } from '../utils/formNav.js'
@@ -103,24 +103,9 @@ export default function ErfassungFlow({ go, bogenId }) {
     set({ [listKey]: [...bogen[listKey], neuerEintrag(firstKey)] })
   }
 
-  // Artikel-Prozente aus dem €-Anteil der gewählten Warengruppe neu berechnen,
-  // damit der Export auch nach späteren Änderungen korrekt ist.
-  const mitArtikelProzenten = (b) => ({
-    ...b,
-    artikel: b.artikel.map((a) => {
-      if (!a.warengruppeId) return a
-      const wg = b.warengruppen.find((w) => w.id === a.warengruppeId)
-      const wEuro = parseNum(wg && wg.verlustEuro)
-      const aEuro = parseNum(a.verlustEuro)
-      if (wEuro && wEuro !== 0 && aEuro !== null) {
-        return { ...a, verlustProzent: String(Math.round((aEuro / Math.abs(wEuro)) * 10000) / 100) }
-      }
-      return a
-    }),
-  })
-
   const handleExport = async () => {
-    const fertig = mitArtikelProzenten(bogen)
+    // Artikel-Prozente frisch berechnen (gleiche Logik wie im Export).
+    const fertig = recomputeArtikelProzente(bogen)
     saveBogen(fertig)
     try {
       await exportBogen(fertig)

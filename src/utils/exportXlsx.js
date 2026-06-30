@@ -22,6 +22,27 @@ function num(v) {
   return isFinite(n) ? n : null
 }
 
+// Berechnet die Artikel-Verlust-Prozente immer frisch aus dem €-Anteil an der
+// gewählten Warengruppe. Vorzeichen folgt dem Artikel-€ (Verlust = negativ),
+// daher Division durch den Betrag der Warengruppe. Wird bei JEDEM Export
+// angewandt (auch aus dem Archiv), damit die %-Werte garantiert korrekt sind.
+export function recomputeArtikelProzente(bogen) {
+  if (!bogen || !Array.isArray(bogen.artikel)) return bogen
+  return {
+    ...bogen,
+    artikel: bogen.artikel.map((a) => {
+      if (!a || !a.warengruppeId) return a
+      const wg = (bogen.warengruppen || []).find((w) => w.id === a.warengruppeId)
+      const wEuro = num(wg && wg.verlustEuro)
+      const aEuro = num(a.verlustEuro)
+      if (wEuro && wEuro !== 0 && aEuro !== null) {
+        return { ...a, verlustProzent: String(Math.round((aEuro / Math.abs(wEuro)) * 10000) / 100) }
+      }
+      return a
+    }),
+  }
+}
+
 function checksToText(checks, frei) {
   const parts = []
   if (checks) {
@@ -57,7 +78,9 @@ function borderRow(ws, row) {
 
 // Baut die Workbook-Instanz auf (ohne Browser-spezifischen Download).
 // Dadurch ist die Excel-Logik auch in Node testbar.
-export function buildWorkbook(bogen) {
+export function buildWorkbook(bogenInput) {
+  // Artikel-Prozente bei jedem Export frisch berechnen (auch aus dem Archiv).
+  const bogen = recomputeArtikelProzente(bogenInput)
   const wb = new ExcelJS.Workbook()
   wb.creator = 'InventurManager'
   wb.created = new Date()
