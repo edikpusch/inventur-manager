@@ -354,6 +354,21 @@ button {
   margin-bottom: 14px;
 }
 
+.version-badge {
+  position: fixed;
+  left: calc(8px + env(safe-area-inset-left));
+  bottom: calc(6px + env(safe-area-inset-bottom));
+  z-index: 50;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--muted);
+  opacity: 0.65;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 4px 7px;
+  border-radius: 6px;
+  pointer-events: none; /* blockiert keine Taps */
+}
+
 .wizard-q {
   font-size: 19px;
   font-weight: 700;

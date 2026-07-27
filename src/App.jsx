@@ -19,6 +19,9 @@ export default function App() {
         <ErfassungFlow go={go} bogenId={route.bogenId} resumeEntwurf={route.resumeEntwurf} />
       )}
       {route.name === 'archiv' && <ArchivScreen go={go} />}
+
+      {/* Versionsanzeige unten links – zeigt, welcher Stand geladen ist */}
+      <div className="version-badge">{__APP_VERSION__}</div>
     </div>
   )
 }
