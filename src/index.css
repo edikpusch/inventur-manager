@@ -354,6 +354,42 @@ button {
   margin-bottom: 14px;
 }
 
+.wizard-q {
+  font-size: 19px;
+  font-weight: 700;
+  margin: 2px 0 16px;
+  line-height: 1.3;
+}
+
+.opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 15px 16px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--text);
+  font-size: 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.opt:active {
+  background: #eef1f5;
+}
+
+.opt.selected {
+  border-color: var(--blue);
+  background: #eef4ff;
+}
+
+.opt .opt-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
 .signed {
   display: flex;
   gap: 8px;

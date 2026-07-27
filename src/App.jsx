@@ -15,7 +15,9 @@ export default function App() {
     <div className="app">
       {route.name === 'home' && <HomeScreen go={go} />}
       {route.name === 'einstellungen' && <EinstellungenScreen go={go} />}
-      {route.name === 'erfassung' && <ErfassungFlow go={go} bogenId={route.bogenId} />}
+      {route.name === 'erfassung' && (
+        <ErfassungFlow go={go} bogenId={route.bogenId} resumeEntwurf={route.resumeEntwurf} />
+      )}
       {route.name === 'archiv' && <ArchivScreen go={go} />}
     </div>
   )

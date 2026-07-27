@@ -1,15 +1,66 @@
-import { getProfil, getArchiv } from '../store.js'
+import { useState } from 'react'
+import { getProfil, getArchiv, getEntwurf, clearEntwurf } from '../store.js'
+
+function fmtDatum(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d)) return iso
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
+}
+
+function phaseLabel(view) {
+  if (!view) return 'Kopfdaten'
+  if (view.v === 'kopf') return 'Kopfdaten'
+  if (view.v === 'wg' || view.v === 'wgHub') return 'Warengruppen'
+  if (view.v === 'art' || view.v === 'artHub') return 'Artikel'
+  return 'Abschluss'
+}
 
 export default function HomeScreen({ go }) {
   const profil = getProfil()
   const archivCount = getArchiv().length
   const profilOk = profil.vlName && profil.filialen.length > 0
+  const [entwurf, setEntwurf] = useState(() => getEntwurf())
+
+  const neuerBogen = () => {
+    if (
+      entwurf &&
+      !confirm('Es gibt einen ungespeicherten Entwurf. Neuen Bogen starten und den Entwurf überschreiben?')
+    ) {
+      return
+    }
+    go('erfassung')
+  }
+
+  const entwurfVerwerfen = () => {
+    if (!confirm('Entwurf wirklich verwerfen?')) return
+    clearEntwurf()
+    setEntwurf(null)
+  }
 
   return (
     <>
       <div className="topbar">
         <h1>InventurManager</h1>
       </div>
+
+      {entwurf && entwurf.bogen && (
+        <div className="card" style={{ borderColor: 'var(--green)' }}>
+          <h2>Entwurf fortsetzen</h2>
+          <p className="muted">
+            Filiale {entwurf.bogen.filialeNummer || '?'} · {fmtDatum(entwurf.bogen.datum)} ·{' '}
+            {phaseLabel(entwurf.view)}
+          </p>
+          <div className="nav-buttons">
+            <button className="btn green" onClick={() => go('erfassung', { resumeEntwurf: true })}>
+              Fortsetzen
+            </button>
+            <button className="btn danger" onClick={entwurfVerwerfen}>
+              Verwerfen
+            </button>
+          </div>
+        </div>
+      )}
 
       {!profilOk && (
         <div className="card" style={{ borderColor: 'var(--blue)' }}>
@@ -25,7 +76,7 @@ export default function HomeScreen({ go }) {
       )}
 
       <div className="card">
-        <button className="btn green" disabled={!profilOk} onClick={() => go('erfassung')}>
+        <button className="btn green" disabled={!profilOk} onClick={neuerBogen}>
           ＋ Neuen Bogen erstellen
         </button>
         <button className="btn secondary" onClick={() => go('archiv')}>

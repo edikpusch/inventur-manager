@@ -341,20 +341,58 @@ export function buildWorkbook(bogenInput) {
   return wb
 }
 
-export async function exportBogen(bogen) {
-  const wb = buildWorkbook(bogen)
+function dateiname(bogen) {
+  return `Inventur_${bogen.filialeNummer || 'Filiale'}_${bogen.datum || ''}.xlsx`
+}
 
-  // --- Download ---
+async function buildBlob(bogen) {
+  const wb = buildWorkbook(bogen)
   const buffer = await wb.xlsx.writeBuffer()
-  const blob = new Blob([buffer], {
+  return new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   })
+}
+
+function downloadBlob(blob, name) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `Inventur_${bogen.filialeNummer || 'Filiale'}_${bogen.datum || ''}.xlsx`
+  a.download = name
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 2000)
+}
+
+// Datei herunterladen (bisheriges Verhalten).
+export async function exportBogen(bogen) {
+  const blob = await buildBlob(bogen)
+  downloadBlob(blob, dateiname(bogen))
+}
+
+// Datei direkt teilen (z.B. an WhatsApp) via Web Share API.
+// Fallback: normaler Download, wenn das Teilen von Dateien nicht unterstützt
+// wird oder der Nutzer abbricht (AbortError wird NICHT als Fehler behandelt).
+export async function shareBogen(bogen) {
+  const name = dateiname(bogen)
+  const blob = await buildBlob(bogen)
+  const file = new File([blob], name, {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: name })
+      return
+    } catch (err) {
+      // Abbruch durch den Nutzer nicht als Fehler behandeln – Fallback auf Download.
+      if (err && err.name === 'AbortError') {
+        // bewusst kein throw
+      }
+      // jeder andere Fehler: ebenfalls auf Download zurückfallen
+    }
+  }
+
+  // Fallback: normaler Download
+  downloadBlob(blob, name)
 }

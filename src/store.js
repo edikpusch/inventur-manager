@@ -3,10 +3,12 @@
 //   im_profil    -> { vlName, filialen: [{ id, nummer, mlName, zielvorgabe }] }
 //   im_archiv    -> Array gespeicherter Bögen
 //   im_vorlagen  -> Array eigener Ursache/Maßnahme-Vorlagen [{ id, ursache, massnahme }]
+//   im_entwurf   -> { bogen, step }  (Auto-Save des laufenden Bogens)
 
 const PROFIL_KEY = 'im_profil'
 const ARCHIV_KEY = 'im_archiv'
 const VORLAGEN_KEY = 'im_vorlagen'
+const ENTWURF_KEY = 'im_entwurf'
 
 function read(key, fallback) {
   try {
@@ -59,6 +61,33 @@ export function saveBogen(bogen) {
 
 export function deleteBogen(id) {
   write(ARCHIV_KEY, getArchiv().filter((b) => b.id !== id))
+}
+
+// Schlägt die nächste Inventur-Nr. für eine Filiale vor: Anzahl der Archiv-Bögen
+// dieser Filiale im aktuellen Kalenderjahr + 1 (als String).
+export function naechsteInventurNr(filialeId) {
+  const jahr = new Date().getFullYear()
+  const count = getArchiv().filter((b) => {
+    if (b.filialeId !== filialeId) return false
+    const d = new Date(b.datum)
+    return !isNaN(d) && d.getFullYear() === jahr
+  }).length
+  return String(count + 1)
+}
+
+// --- Entwurf (Auto-Save des laufenden Bogens) ---
+export function getEntwurf() {
+  return read(ENTWURF_KEY, null)
+}
+
+// view = aktuelle Cursor-Position im Wizard (Sektion/Schritt), damit "Fortsetzen"
+// an derselben Stelle weitermacht.
+export function saveEntwurf(bogen, view) {
+  write(ENTWURF_KEY, { bogen, view })
+}
+
+export function clearEntwurf() {
+  localStorage.removeItem(ENTWURF_KEY)
 }
 
 // --- Eigene Ursache/Maßnahme-Vorlagen ---

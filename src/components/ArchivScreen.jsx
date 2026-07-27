@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { getArchiv, deleteBogen } from '../store.js'
-import { exportBogen } from '../utils/exportXlsx.js'
+import { exportBogen, shareBogen } from '../utils/exportXlsx.js'
 
 function fmtDatum(iso) {
   if (!iso) return ''
@@ -23,6 +23,14 @@ export default function ArchivScreen({ go }) {
       await exportBogen(b)
     } catch (err) {
       alert('Export fehlgeschlagen: ' + err.message)
+    }
+  }
+
+  const handleShare = async (b) => {
+    try {
+      await shareBogen(b)
+    } catch (err) {
+      alert('Teilen fehlgeschlagen: ' + err.message)
     }
   }
 
@@ -55,7 +63,10 @@ export default function ArchivScreen({ go }) {
             <button className="btn small secondary" onClick={() => go('erfassung', { bogenId: b.id })}>
               Öffnen
             </button>
-            <button className="btn small" onClick={() => handleExport(b)}>
+            <button className="btn small" onClick={() => handleShare(b)}>
+              📤
+            </button>
+            <button className="btn small secondary" onClick={() => handleExport(b)}>
               ⬇
             </button>
             <button className="btn small danger" onClick={() => handleDelete(b.id)}>
