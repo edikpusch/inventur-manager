@@ -62,7 +62,6 @@ export default function EinstellungenScreen({ go }) {
           <input
             value={profil.vlName}
             onChange={(e) => update({ vlName: e.target.value })}
-            placeholder="z.B. Max Mustermann"
           />
         </label>
       </div>
@@ -85,7 +84,6 @@ export default function EinstellungenScreen({ go }) {
               <input
                 value={f.nummer}
                 onChange={(e) => updateFiliale(f.id, { nummer: e.target.value })}
-                placeholder="z.B. 2497"
                 inputMode="numeric"
                 enterKeyHint="next"
               />
@@ -95,7 +93,6 @@ export default function EinstellungenScreen({ go }) {
               <input
                 value={f.mlName}
                 onChange={(e) => updateFiliale(f.id, { mlName: e.target.value })}
-                placeholder="Name des Marktleiters"
                 enterKeyHint="next"
               />
             </label>
@@ -104,7 +101,6 @@ export default function EinstellungenScreen({ go }) {
               <SignedInput
                 value={f.zielvorgabe || ''}
                 onChange={(v) => updateFiliale(f.id, { zielvorgabe: v })}
-                placeholder="z. B. 1,50"
               />
             </label>
           </div>

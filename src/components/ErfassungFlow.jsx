@@ -435,7 +435,7 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           style={{ marginTop: 8 }}
           value={entry[freiKey] || ''}
           onChange={(e) => patch({ [freiKey]: e.target.value })}
-          placeholder="Zusatz (optional, z.B. Name)"
+          placeholder="Zusatz (optional)"
         />
       </>
     )
@@ -479,7 +479,6 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           <input
             value={entry.datumNachkontrolle || ''}
             onChange={(e) => patch({ datumNachkontrolle: e.target.value })}
-            placeholder="z.B. 15.03.2026"
           />
         </label>
         {nkText && !istFavorit && (
@@ -521,11 +520,11 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           <div className="row">
             <label className="field">
               <span>Inventurergebnis in %</span>
-              <SignedInput value={bogen.ergebnis} onChange={(v) => setB({ ergebnis: v })} placeholder="1,66" defaultNegative />
+              <SignedInput value={bogen.ergebnis} onChange={(v) => setB({ ergebnis: v })} defaultNegative />
             </label>
             <label className="field">
               <span>Inventurvorgabe in %</span>
-              <SignedInput value={bogen.vorgabe} onChange={(v) => setB({ vorgabe: v })} placeholder="0,89" />
+              <SignedInput value={bogen.vorgabe} onChange={(v) => setB({ vorgabe: v })} />
             </label>
           </div>
           {beide && (
@@ -592,7 +591,7 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           </button>
           <label className="field">
             <span>Betrag in €</span>
-            <input value={bogen.kuehlschaeden} onChange={(e) => setB({ kuehlschaeden: e.target.value })} inputMode="decimal" placeholder="0,00" />
+            <input value={bogen.kuehlschaeden} onChange={(e) => setB({ kuehlschaeden: e.target.value })} inputMode="decimal" />
           </label>
           <button className="btn" onClick={() => { tap(); kopfNext() }}>Weiter →</button>
         </div>
@@ -688,11 +687,11 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           <div className="row">
             <label className="field">
               <span>Verlust in €</span>
-              <SignedInput value={entry.verlustEuro} onChange={(v) => patchWg({ verlustEuro: v })} placeholder="10392" defaultNegative />
+              <SignedInput value={entry.verlustEuro} onChange={(v) => patchWg({ verlustEuro: v })} defaultNegative />
             </label>
             <label className="field">
               <span>Verlust in %</span>
-              <SignedInput value={entry.verlustProzent} onChange={(v) => patchWg({ verlustProzent: v })} placeholder="3,24" defaultNegative />
+              <SignedInput value={entry.verlustProzent} onChange={(v) => patchWg({ verlustProzent: v })} defaultNegative />
             </label>
           </div>
           <button className="btn" onClick={() => { tap(); wgNext() }}>Weiter →</button>
@@ -746,7 +745,7 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           <div className="wizard-q">Welcher Artikel?</div>
           <label className="field">
             <span>Artikel-Name</span>
-            <input value={entry.artikelName || ''} onChange={(e) => patchArt({ artikelName: e.target.value })} placeholder="z.B. Clarkys Pistazien" />
+            <input value={entry.artikelName || ''} onChange={(e) => patchArt({ artikelName: e.target.value })} />
           </label>
           <button className="btn" disabled={!(entry.artikelName || '').trim()} onClick={() => { tap(); artNext() }}>Weiter →</button>
         </div>
@@ -790,7 +789,6 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
             <SignedInput
               value={entry.verlustEuro}
               onChange={(v) => patchArt(auto ? { verlustEuro: v, verlustProzent: berechnePct(v, wgEuro) } : { verlustEuro: v })}
-              placeholder="10392"
               defaultNegative
             />
           </label>
@@ -806,7 +804,7 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           ) : (
             <label className="field">
               <span>Verlust in %</span>
-              <SignedInput value={entry.verlustProzent} onChange={(v) => patchArt({ verlustProzent: v })} placeholder="3,24" defaultNegative />
+              <SignedInput value={entry.verlustProzent} onChange={(v) => patchArt({ verlustProzent: v })} defaultNegative />
             </label>
           )}
           {auto && (
