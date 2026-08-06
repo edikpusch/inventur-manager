@@ -7,6 +7,10 @@ import {
   deleteVorlage,
   getNkFavoriten,
   deleteNkFavorit,
+  getArtikelStamm,
+  deleteArtikelStamm,
+  getGeloeschteUrsachen,
+  restoreUrsache,
 } from '../store.js'
 import SignedInput from './SignedInput.jsx'
 import { handleEnterNext } from '../utils/formNav.js'
@@ -17,8 +21,14 @@ export default function EinstellungenScreen({ go }) {
   const [vorlagen, setVorlagen] = useState(() => getVorlagen())
   const [nkFavoriten, setNkFavoriten] = useState(() => getNkFavoriten())
 
+  const [artikelStamm, setArtikelStamm] = useState(() => getArtikelStamm())
+  const [geloescht, setGeloescht] = useState(() => getGeloeschteUrsachen())
+  const [artFilter, setArtFilter] = useState('')
+
   const removeVorlage = (id) => setVorlagen(deleteVorlage(id))
   const removeNkFavorit = (t) => setNkFavoriten(deleteNkFavorit(t))
+  const removeArtikel = (id) => setArtikelStamm(deleteArtikelStamm(id))
+  const restoreUrs = (name) => setGeloescht(restoreUrsache(name))
 
   const update = (patch) => {
     setProfil((p) => ({ ...p, ...patch }))
@@ -127,6 +137,58 @@ export default function EinstellungenScreen({ go }) {
               </div>
               <button className="btn small danger" onClick={() => removeVorlage(v.id)}>
                 ✕
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="card">
+        <h2>Artikelstamm</h2>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Erfasste Artikel werden automatisch gemerkt und stehen bei der Erfassung zur Schnellauswahl.
+        </p>
+        {artikelStamm.length === 0 ? (
+          <p className="muted">Noch keine Artikel gespeichert.</p>
+        ) : (
+          <>
+            <label className="field">
+              <span>Suchen ({artikelStamm.length} Artikel)</span>
+              <input value={artFilter} onChange={(e) => setArtFilter(e.target.value)} />
+            </label>
+            {artikelStamm
+              .filter((a) => a.name.toLowerCase().includes(artFilter.trim().toLowerCase()))
+              .slice(0, 50)
+              .map((a) => (
+                <div className="list-item" key={a.id}>
+                  <div className="grow">
+                    <div className="title">{a.name}</div>
+                    {a.warengruppe && <div className="sub">{a.warengruppe}</div>}
+                  </div>
+                  <button className="btn small danger" onClick={() => removeArtikel(a.id)}>
+                    ✕
+                  </button>
+                </div>
+              ))}
+          </>
+        )}
+      </div>
+
+      <div className="card">
+        <h2>Gelöschte Ursachen</h2>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Bei der Erfassung per ✕ ausgeblendete Ursachen. Hier wiederherstellbar.
+        </p>
+        {geloescht.length === 0 ? (
+          <p className="muted">Keine Ursachen ausgeblendet.</p>
+        ) : (
+          geloescht.map((name) => (
+            <div className="list-item" key={name}>
+              <div className="grow">
+                <div className="title">{name}</div>
+              </div>
+              <button className="btn small secondary" onClick={() => restoreUrs(name)}>
+                ↩ Wiederherstellen
               </button>
             </div>
           ))

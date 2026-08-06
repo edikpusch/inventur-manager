@@ -370,29 +370,39 @@ export async function exportBogen(bogen) {
   downloadBlob(blob, dateiname(bogen))
 }
 
-// Datei direkt teilen (z.B. an WhatsApp) via Web Share API.
-// Fallback: normaler Download, wenn das Teilen von Dateien nicht unterstützt
-// wird oder der Nutzer abbricht (AbortError wird NICHT als Fehler behandelt).
-export async function shareBogen(bogen) {
-  const name = dateiname(bogen)
+// Baut die fertige Datei (File-Objekt) – kann VORAB erzeugt werden, damit das
+// Teilen ohne Wartezeit direkt aus dem Antippen heraus startet.
+export async function buildDatei(bogen) {
   const blob = await buildBlob(bogen)
-  const file = new File([blob], name, {
+  return new File([blob], dateiname(bogen), {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   })
+}
+
+// Datei über die Teilen-Funktion des Handys weitergeben (z.B. an WhatsApp).
+//
+// WICHTIG: navigator.share() muss unmittelbar aus der Nutzer-Geste heraus
+// aufgerufen werden. Wird die Datei erst nach dem Antippen erzeugt (ExcelJS
+// braucht dafür einen Moment), verfällt die Geste und Android blockiert das
+// Teilen. Deshalb wird die Datei vorab gebaut und hier als `prebuilt` übergeben.
+//
+// Rückgabe: 'geteilt' | 'abgebrochen' | 'download'
+export async function shareBogen(bogen, prebuilt) {
+  const file = prebuilt || (await buildDatei(bogen))
+  const name = file.name
 
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: name })
-      return
+      return 'geteilt'
     } catch (err) {
-      // Abbruch durch den Nutzer nicht als Fehler behandeln – Fallback auf Download.
-      if (err && err.name === 'AbortError') {
-        // bewusst kein throw
-      }
-      // jeder andere Fehler: ebenfalls auf Download zurückfallen
+      // Nutzer hat das Teilen-Fenster abgebrochen -> nichts weiter tun
+      // (insbesondere KEIN Download auslösen).
+      if (err && err.name === 'AbortError') return 'abgebrochen'
+      // jeder andere Fehler: auf Download zurückfallen
     }
   }
 
-  // Fallback: normaler Download
-  downloadBlob(blob, name)
+  downloadBlob(file, name)
+  return 'download'
 }

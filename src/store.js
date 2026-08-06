@@ -3,12 +3,16 @@
 //   im_profil    -> { vlName, filialen: [{ id, nummer, mlName, zielvorgabe }] }
 //   im_archiv    -> Array gespeicherter Bögen
 //   im_vorlagen  -> Array eigener Ursache/Maßnahme-Vorlagen [{ id, ursache, massnahme }]
-//   im_entwurf   -> { bogen, step }  (Auto-Save des laufenden Bogens)
+//   im_entwurf   -> { bogen, view }  (Auto-Save des laufenden Bogens)
+//   im_artikel_stamm      -> [{ id, name, warengruppe }] Artikelstamm (Schnellauswahl)
+//   im_ursachen_geloescht -> [ursacheName] ausgeblendete eingebaute Ursachen
 
 const PROFIL_KEY = 'im_profil'
 const ARCHIV_KEY = 'im_archiv'
 const VORLAGEN_KEY = 'im_vorlagen'
 const ENTWURF_KEY = 'im_entwurf'
+const ARTIKEL_KEY = 'im_artikel_stamm'
+const URS_DEL_KEY = 'im_ursachen_geloescht'
 
 function read(key, fallback) {
   try {
@@ -134,5 +138,53 @@ export function saveNkFavorit(text) {
 export function deleteNkFavorit(text) {
   const all = getNkFavoriten().filter((x) => x !== text)
   write(NK_KEY, all)
+  return all
+}
+
+// --- Artikelstamm (Schnellauswahl für künftige Bögen) ---
+export function getArtikelStamm() {
+  return read(ARTIKEL_KEY, [])
+}
+
+// Legt den Artikel an oder aktualisiert seine Warengruppe (Name = Schlüssel).
+export function saveArtikelStamm({ name, warengruppe }) {
+  const n = (name || '').trim()
+  if (!n) return getArtikelStamm()
+  const all = getArtikelStamm()
+  const idx = all.findIndex((a) => a.name.trim().toLowerCase() === n.toLowerCase())
+  const wg = (warengruppe || '').trim()
+  if (idx >= 0) {
+    all[idx] = { ...all[idx], name: n, warengruppe: wg || all[idx].warengruppe || '' }
+  } else {
+    all.push({ id: uid(), name: n, warengruppe: wg })
+  }
+  all.sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  write(ARTIKEL_KEY, all)
+  return all
+}
+
+export function deleteArtikelStamm(id) {
+  const all = getArtikelStamm().filter((a) => a.id !== id)
+  write(ARTIKEL_KEY, all)
+  return all
+}
+
+// --- Ausgeblendete (gelöschte) eingebaute Ursachen ---
+export function getGeloeschteUrsachen() {
+  return read(URS_DEL_KEY, [])
+}
+
+export function loescheUrsache(name) {
+  const n = (name || '').trim()
+  if (!n) return getGeloeschteUrsachen()
+  const all = getGeloeschteUrsachen()
+  if (!all.includes(n)) all.push(n)
+  write(URS_DEL_KEY, all)
+  return all
+}
+
+export function restoreUrsache(name) {
+  const all = getGeloeschteUrsachen().filter((x) => x !== name)
+  write(URS_DEL_KEY, all)
   return all
 }

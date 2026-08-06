@@ -39,7 +39,9 @@ src/
 - `im_archiv`   → Array gespeicherter Bögen
 - `im_vorlagen` → eigene Ursache/Maßnahme-Vorlagen `[{ id, ursache, massnahme }]`
 - `im_nk_favoriten` → Favoriten für „Datum Nachkontrolle" (Array von Strings, z.B. "regelmäßig")
-- `im_entwurf`  → **Auto-Save** des laufenden Bogens: `{ bogen, step }`
+- `im_entwurf`  → **Auto-Save** des laufenden Bogens: `{ bogen, view }` (view = Cursor im Wizard)
+- `im_artikel_stamm` → Artikelstamm `[{ id, name, warengruppe }]` für die Schnellauswahl
+- `im_ursachen_geloescht` → per ✕ ausgeblendete **eingebaute** Ursachen (Array von Namen)
 
 ## Wichtige Systeme & Regeln
 
@@ -51,9 +53,39 @@ src/
 - **Archiv-Bogen öffnen** (`bogenId`): Entwurf-Logik ist ebenfalls aktiv (kein Datenverlust bei Änderungen).
 - **Beim Abschluss** (`finalize()`): ausstehenden Auto-Save-Timer abbrechen, `recomputeArtikelProzente` → `saveBogen` → `clearEntwurf`. Verhindert, dass ein pending Debounce den gerade geleerten Entwurf wiederherstellt.
 
+### Ursachen-Auswahl (im Wizard)
+- **Suchfeld** filtert alle Ursachen; ohne Suche sind die **Kategorien eingeklappt** (`offeneKats`).
+- Jede Zeile (eingebaut **und** eigene Vorlage) hat ein **✕**: eingebaute landen in
+  `im_ursachen_geloescht` (nur ausgeblendet, Daten bleiben in `ursachenListe.js`),
+  eigene werden per `deleteVorlage` entfernt. **Ohne Rückfrage** – Wiederherstellen
+  in Einstellungen → „Gelöschte Ursachen".
+- **Eigene Ursache** nur zusammen mit **eigener Maßnahme**: ein Formular mit beiden
+  Feldern, Button erst aktiv wenn beides gefüllt → `saveVorlage({ursache, massnahme})`
+  und Übernahme in den Eintrag.
+
+### Artikelstamm
+- Jeder erfasste Artikel wird **automatisch** gemerkt (`saveArtikelStamm`, Name = Schlüssel,
+  case-insensitiv, Warengruppe wird aktualisiert). Sync beim Betreten von `artHub` und in `finalize()`.
+- Artikel-Screen: der Name-Input ist gleichzeitig **Suchfeld**; Treffer als Karten.
+  Tap übernimmt Namen **und** – falls die Warengruppe im aktuellen Bogen existiert –
+  setzt `warengruppeId` und springt direkt zum Verlust-Screen (Schritt 2).
+- Verwaltung/Löschen in Einstellungen.
+
+### Zifferntastatur
+- Zahlen-Screens fokussieren ihr Feld automatisch (`autoFocus`; `SignedInput` hat eine
+  eigene `autoFocus`-Prop mit `useEffect`-Fokus). Zusammen mit `inputMode` öffnet Android
+  direkt den Ziffernblock.
+
 ### Teilen / Export – exportXlsx.js
 - `exportBogen(bogen)` → Blob bauen + **Download** (bisheriges Verhalten, Dateiname `Inventur_<Nr>_<Datum>.xlsx`).
-- `shareBogen(bogen)` → **Web Share API** mit Datei: prüft `navigator.canShare({ files:[file] })`, ruft `navigator.share({ files:[file], title })`. **Fallback = Download**, wenn nicht unterstützt oder bei Fehler; **AbortError** (Nutzer bricht ab) wird nicht als Fehler behandelt.
+- `buildDatei(bogen)` → fertiges `File`-Objekt (kann **vorab** gebaut werden).
+- `shareBogen(bogen, prebuilt)` → **Web Share API**; Rückgabe `'geteilt' | 'abgebrochen' | 'download'`.
+  **AbortError** (Nutzer bricht ab) → `'abgebrochen'`, **kein** Download. Sonst Fallback = Download.
+- **WICHTIG:** `navigator.share()` muss unmittelbar aus der Nutzer-Geste heraus laufen.
+  Wird die Datei erst nach dem Antippen gebaut (ExcelJS braucht einen Moment), verfällt die
+  Geste und Android blockiert das Teilen (→ stiller Download). Deshalb baut ErfassungFlow
+  die Datei im Abschluss-Screen vorab in `dateiRef` (debounced, invalidiert bei Änderungen)
+  und übergibt sie an `shareBogen`.
 - ErfassungFlow Schritt 4: zwei Buttons – **„📤 Teilen (WhatsApp)"** (`handleShare`) und **„⬇ Nur herunterladen"** (`handleDownload`). Beide `finalize()`n (Archiv + Entwurf leeren) vor dem Teilen/Download.
 - ArchivScreen: pro Bogen zusätzlich ein 📤-Teilen-Button neben dem ⬇-Download.
 - **buildWorkbook / Layout NICHT verändern** – Export-Layout muss identisch bleiben.
@@ -80,6 +112,8 @@ src/
 | Eingaben nach App-Wechsel weg | nur bei Export gespeichert | Auto-Save `im_entwurf` (debounced) |
 | ML-Name/Vorgabe bleibt bei Filialwechsel | Fallback auf alten Wert | immer aus neuer Filiale übernehmen |
 | Entwurf taucht nach Export wieder auf | pending Debounce nach `clearEntwurf` | Timer in `finalize()` abbrechen |
+| „Teilen" lädt nur herunter statt zu teilen | Datei erst nach dem Tap gebaut → Nutzer-Geste verfallen | Datei vorab bauen (`dateiRef`) und an `shareBogen` übergeben |
+| Abbrechen im Teilen-Dialog löst Download aus | AbortError fiel in den Fallback | bei AbortError früh `'abgebrochen'` zurückgeben |
 
 ## Build / Deploy
 ```bash

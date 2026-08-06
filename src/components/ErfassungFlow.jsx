@@ -13,17 +13,17 @@ import {
   getEntwurf,
   saveEntwurf,
   clearEntwurf,
+  deleteVorlage,
+  getArtikelStamm,
+  saveArtikelStamm,
+  getGeloeschteUrsachen,
+  loescheUrsache,
 } from '../store.js'
-import { exportBogen, shareBogen, recomputeArtikelProzente } from '../utils/exportXlsx.js'
+import { exportBogen, shareBogen, buildDatei, recomputeArtikelProzente } from '../utils/exportXlsx.js'
 import { URSACHEN_LISTE } from '../data/ursachenListe.js'
 import { WARENGRUPPEN } from '../data/warengruppenListe.js'
 import SignedInput from './SignedInput.jsx'
 
-// Ursachen nach Kategorie gruppiert (für die Auswahl)
-const GRUPPEN = URSACHEN_LISTE.reduce((acc, u) => {
-  ;(acc[u.kategorie] = acc[u.kategorie] || []).push(u)
-  return acc
-}, {})
 const NK_PRESETS = ['regelmäßig', 'wöchentlich', '14-tägig', 'monatlich']
 
 function heute() {
@@ -147,9 +147,17 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
 
   const [vorlagen, setVorlagen] = useState(() => getVorlagen())
   const [nkFavoriten, setNkFavoriten] = useState(() => getNkFavoriten())
-  const [freiUrsache, setFreiUrsache] = useState('')
-  const addVorlage = (v) => setVorlagen(saveVorlage(v))
+  const [artikelStamm, setArtikelStamm] = useState(() => getArtikelStamm())
+  const [geloescht, setGeloescht] = useState(() => getGeloeschteUrsachen())
   const addNkFavorit = (t) => setNkFavoriten(saveNkFavorit(t))
+
+  // Eigene Ursache immer zusammen mit eigener Maßnahme
+  const [freiOffen, setFreiOffen] = useState(false)
+  const [freiUrsache, setFreiUrsache] = useState('')
+  const [freiMassnahme, setFreiMassnahme] = useState('')
+  // Ursachen-Auswahl: Suche + eingeklappte Kategorien
+  const [ursSuche, setUrsSuche] = useState('')
+  const [offeneKats, setOffeneKats] = useState([])
 
   // Neuer Bogen: alten Entwurf verwerfen (Überschreiben bestätigt in HomeScreen)
   useEffect(() => {
@@ -170,9 +178,11 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
     return () => clearTimeout(saveTimer.current)
   }, [bogen, view])
 
-  // Screen-Wechsel: nach oben scrollen
+  // Screen-Wechsel: nach oben scrollen; Ursachen-Suche zurücksetzen
   useEffect(() => {
     window.scrollTo(0, 0)
+    setUrsSuche('')
+    setFreiOffen(false)
   }, [view])
 
   // ── Bogen-/Eintrag-Änderungen ──────────────────────────────────────────────
@@ -204,6 +214,18 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
     const f =
       vorlagen.find((v) => v.ursache === urs) || URSACHEN_LISTE.find((u) => u.ursache === urs)
     return f ? f.massnahme : ''
+  }
+  // Auswahlliste ohne die per ✕ gelöschten eingebauten Ursachen
+  const aktiveBuiltins = URSACHEN_LISTE.filter((u) => !geloescht.includes(u.ursache))
+  const aktiveGruppen = aktiveBuiltins.reduce((acc, u) => {
+    ;(acc[u.kategorie] = acc[u.kategorie] || []).push(u)
+    return acc
+  }, {})
+  // Ursache dauerhaft aus der Auswahl entfernen (wiederherstellbar in Einstellungen)
+  const ursacheLoeschen = (name, vorlageId) => {
+    tap()
+    if (vorlageId) setVorlagen(deleteVorlage(vorlageId))
+    else setGeloescht(loescheUrsache(name))
   }
   const addUrsache = (entry, patch, text) => {
     const t = (text || '').trim()
@@ -282,22 +304,69 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
   }
 
   // ── Abschluss ────────────────────────────────────────────────────────────────
-  const finalize = () => {
-    clearTimeout(saveTimer.current)
-    const clean = {
+  // Bogen in Export-Form (ohne leere Einträge, Prozente frisch) – ohne Speichern.
+  const bogenFuerExport = () =>
+    recomputeArtikelProzente({
       ...bogen,
       warengruppen: bogen.warengruppen.filter((e) => !isEmptyWg(e)),
       artikel: bogen.artikel.filter((e) => !isEmptyArt(e)),
-    }
-    const fertig = recomputeArtikelProzente(clean)
+    })
+
+  // Erfasste Artikel in den Artikelstamm übernehmen (Name + Warengruppe)
+  const syncArtikelStamm = () => {
+    let stamm = null
+    bogen.artikel.forEach((a) => {
+      const nm = (a.artikelName || '').trim()
+      if (!nm) return
+      const wg = bogen.warengruppen.find((w) => w.id === a.warengruppeId)
+      stamm = saveArtikelStamm({ name: nm, warengruppe: wg ? wg.warengruppe : '' })
+    })
+    if (stamm) setArtikelStamm(stamm)
+  }
+
+  const finalize = () => {
+    clearTimeout(saveTimer.current)
+    const fertig = bogenFuerExport()
     saveBogen(fertig)
+    syncArtikelStamm()
     clearEntwurf()
     return fertig
   }
+
+  // Datei im Abschluss-Screen vorab bauen, damit navigator.share() direkt aus
+  // dem Antippen heraus startet (sonst blockiert Android das Teilen).
+  const dateiRef = useRef(null)
+  useEffect(() => {
+    if (view.v !== 'abschluss') return
+    dateiRef.current = null
+    let verworfen = false
+    const t = setTimeout(async () => {
+      try {
+        const f = await buildDatei(bogenFuerExport())
+        if (!verworfen) dateiRef.current = f
+      } catch {
+        dateiRef.current = null
+      }
+    }, 250)
+    return () => {
+      verworfen = true
+      clearTimeout(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.v, bogen])
+
+  // Beim Zurückkehren zur Artikel-Liste bereits erfasste Artikel merken,
+  // damit sie schon im selben Bogen über die Suche auffindbar sind.
+  useEffect(() => {
+    if (view.v === 'artHub') syncArtikelStamm()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.v])
+
   const handleShare = async () => {
     const f = finalize()
     try {
-      await shareBogen(f)
+      const ergebnis = await shareBogen(f, dateiRef.current)
+      if (ergebnis === 'abgebrochen') return // Nutzer hat abgebrochen – hier bleiben
     } catch (err) {
       alert('Teilen fehlgeschlagen: ' + err.message)
       return
@@ -337,71 +406,121 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
             ))}
           </div>
         )}
-        {vorlagen.length > 0 && (
-          <div style={{ marginBottom: 10 }}>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>★ Eigene Vorlagen</div>
-            <div className="checks">
-              {vorlagen.map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  className={entry.ursachen.includes(v.ursache) ? 'active' : ''}
-                  onClick={() => toggleUrsache(entry, patch, v.ursache)}
-                >
-                  {v.ursache}
-                </button>
-              ))}
+        {/* Suche über alle Ursachen */}
+        <input
+          value={ursSuche}
+          onChange={(e) => setUrsSuche(e.target.value)}
+          placeholder="Ursache suchen…"
+          style={{ marginBottom: 12 }}
+        />
+
+        {/* Eine wählbare Ursache-Zeile mit ✕ zum dauerhaften Entfernen */}
+        {(() => {
+          const zeile = (name, vorlageId) => (
+            <div className="urs-row" key={vorlageId || name}>
+              <button
+                type="button"
+                className={`urs-name ${entry.ursachen.includes(name) ? 'active' : ''}`}
+                onClick={() => { tap(); toggleUrsache(entry, patch, name) }}
+              >
+                {name}
+              </button>
+              <button
+                type="button"
+                className="urs-del"
+                title="Aus der Auswahl entfernen"
+                onClick={() => ursacheLoeschen(name, vorlageId)}
+              >
+                ✕
+              </button>
             </div>
+          )
+
+          const suche = ursSuche.trim().toLowerCase()
+          if (suche) {
+            const treffer = [
+              ...vorlagen.filter((v) => v.ursache.toLowerCase().includes(suche)).map((v) => [v.ursache, v.id]),
+              ...aktiveBuiltins.filter((u) => u.ursache.toLowerCase().includes(suche)).map((u) => [u.ursache, null]),
+            ]
+            return treffer.length === 0 ? (
+              <p className="muted">Keine Ursache gefunden.</p>
+            ) : (
+              treffer.map(([name, vid]) => zeile(name, vid))
+            )
+          }
+
+          const katOffen = (k) => offeneKats.includes(k)
+          const toggleKat = (k) =>
+            setOffeneKats((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]))
+
+          return (
+            <>
+              {vorlagen.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <button type="button" className="kat-head" onClick={() => toggleKat('★')}>
+                    <span>{katOffen('★') ? '▾' : '▸'} ★ Eigene Vorlagen</span>
+                    <span className="kat-count">{vorlagen.length}</span>
+                  </button>
+                  {katOffen('★') && vorlagen.map((v) => zeile(v.ursache, v.id))}
+                </div>
+              )}
+              {Object.entries(aktiveGruppen).map(([kat, list]) => (
+                <div key={kat} style={{ marginBottom: 8 }}>
+                  <button type="button" className="kat-head" onClick={() => toggleKat(kat)}>
+                    <span>{katOffen(kat) ? '▾' : '▸'} {kat}</span>
+                    <span className="kat-count">{list.length}</span>
+                  </button>
+                  {katOffen(kat) && list.map((u) => zeile(u.ursache, null))}
+                </div>
+              ))}
+            </>
+          )
+        })()}
+
+        {/* Eigene Ursache – immer zusammen mit eigener Maßnahme */}
+        {!freiOffen ? (
+          <button className="btn ghost small" style={{ marginTop: 10 }} onClick={() => setFreiOffen(true)}>
+            ✎ Eigene Ursache + Maßnahme
+          </button>
+        ) : (
+          <div className="entry" style={{ marginTop: 12 }}>
+            <div className="entry-head">
+              <strong>Eigene Ursache</strong>
+              <button className="icon-btn" onClick={() => setFreiOffen(false)}>Abbrechen</button>
+            </div>
+            <label className="field">
+              <span>Ursache</span>
+              <input value={freiUrsache} onChange={(e) => setFreiUrsache(e.target.value)} />
+            </label>
+            <label className="field">
+              <span>Maßnahme</span>
+              <textarea value={freiMassnahme} onChange={(e) => setFreiMassnahme(e.target.value)} />
+            </label>
+            <button
+              className="btn"
+              disabled={!freiUrsache.trim() || !freiMassnahme.trim()}
+              onClick={() => {
+                tap()
+                const u = freiUrsache.trim()
+                const m = freiMassnahme.trim()
+                setVorlagen(saveVorlage({ ursache: u, massnahme: m }))
+                // Ursache übernehmen und Maßnahme anhängen
+                let mass = entry.massnahme || ''
+                if (!mass.split('\n').some((l) => l.trim() === m)) mass = mass ? `${mass}\n${m}` : m
+                patch({ ursachen: [...entry.ursachen, u], massnahme: mass })
+                setFreiUrsache('')
+                setFreiMassnahme('')
+                setFreiOffen(false)
+              }}
+            >
+              ＋ Hinzufügen &amp; als Vorlage speichern
+            </button>
+            <p className="hint" style={{ marginBottom: 0 }}>
+              Beides ausfüllen – Ursache und Maßnahme werden zusammen gespeichert.
+            </p>
           </div>
         )}
-        {Object.entries(GRUPPEN).map(([kat, list]) => (
-          <div key={kat} style={{ marginBottom: 10 }}>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>{kat}</div>
-            <div className="checks">
-              {list.map((u) => (
-                <button
-                  key={u.ursache}
-                  type="button"
-                  className={entry.ursachen.includes(u.ursache) ? 'active' : ''}
-                  onClick={() => toggleUrsache(entry, patch, u.ursache)}
-                >
-                  {u.ursache}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <input
-            style={{ flex: 1 }}
-            value={freiUrsache}
-            onChange={(e) => setFreiUrsache(e.target.value)}
-            placeholder="Eigene Ursache…"
-          />
-          <button
-            className="btn small secondary"
-            disabled={!freiUrsache.trim()}
-            onClick={() => {
-              addUrsache(entry, patch, freiUrsache)
-              setFreiUrsache('')
-            }}
-          >
-            ＋
-          </button>
-        </div>
-        {freiUrsache.trim() && (entry.massnahme || '').trim() && (
-          <button
-            className="btn ghost small"
-            style={{ marginTop: 8 }}
-            onClick={() => {
-              addVorlage({ ursache: freiUrsache.trim(), massnahme: (entry.massnahme || '').trim() })
-              addUrsache(entry, patch, freiUrsache)
-              setFreiUrsache('')
-            }}
-          >
-            ★ hinzufügen &amp; als Vorlage speichern
-          </button>
-        )}
+
         <label className="field" style={{ marginTop: 14 }}>
           <span>Maßnahme (automatisch vorgeschlagen, editierbar)</span>
           <textarea value={entry.massnahme || ''} onChange={(e) => patch({ massnahme: e.target.value })} />
@@ -520,7 +639,7 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           <div className="row">
             <label className="field">
               <span>Inventurergebnis in %</span>
-              <SignedInput value={bogen.ergebnis} onChange={(v) => setB({ ergebnis: v })} defaultNegative />
+              <SignedInput value={bogen.ergebnis} onChange={(v) => setB({ ergebnis: v })} defaultNegative autoFocus />
             </label>
             <label className="field">
               <span>Inventurvorgabe in %</span>
@@ -577,7 +696,7 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           </div>
           <label className="field">
             <span>Andere Zahl</span>
-            <input value={bogen.personaldelikte} onChange={(e) => setB({ personaldelikte: e.target.value })} inputMode="numeric" />
+            <input value={bogen.personaldelikte} onChange={(e) => setB({ personaldelikte: e.target.value })} inputMode="numeric" autoFocus />
           </label>
           <button className="btn" onClick={() => { tap(); kopfNext() }}>Weiter →</button>
         </div>
@@ -591,7 +710,7 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           </button>
           <label className="field">
             <span>Betrag in €</span>
-            <input value={bogen.kuehlschaeden} onChange={(e) => setB({ kuehlschaeden: e.target.value })} inputMode="decimal" />
+            <input value={bogen.kuehlschaeden} onChange={(e) => setB({ kuehlschaeden: e.target.value })} inputMode="decimal" autoFocus />
           </label>
           <button className="btn" onClick={() => { tap(); kopfNext() }}>Weiter →</button>
         </div>
@@ -606,7 +725,7 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
         </label>
         <label className="field">
           <span>Inventur-Nr. im laufenden Jahr</span>
-          <input value={bogen.inventurNr} onChange={(e) => setB({ inventurNr: e.target.value })} inputMode="numeric" />
+          <input value={bogen.inventurNr} onChange={(e) => setB({ inventurNr: e.target.value })} inputMode="numeric" autoFocus />
         </label>
         <button className="btn" onClick={() => { tap(); kopfNext() }}>Weiter zu Warengruppen →</button>
       </div>
@@ -687,7 +806,7 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           <div className="row">
             <label className="field">
               <span>Verlust in €</span>
-              <SignedInput value={entry.verlustEuro} onChange={(v) => patchWg({ verlustEuro: v })} defaultNegative />
+              <SignedInput value={entry.verlustEuro} onChange={(v) => patchWg({ verlustEuro: v })} defaultNegative autoFocus />
             </label>
             <label className="field">
               <span>Verlust in %</span>
@@ -744,9 +863,48 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
         <div className="card">
           <div className="wizard-q">Welcher Artikel?</div>
           <label className="field">
-            <span>Artikel-Name</span>
-            <input value={entry.artikelName || ''} onChange={(e) => patchArt({ artikelName: e.target.value })} />
+            <span>Artikel-Name (tippen zum Suchen)</span>
+            <input
+              autoFocus
+              value={entry.artikelName || ''}
+              onChange={(e) => patchArt({ artikelName: e.target.value })}
+            />
           </label>
+          {(() => {
+            const q = (entry.artikelName || '').trim().toLowerCase()
+            const treffer = artikelStamm
+              .filter((a) => (q ? a.name.toLowerCase().includes(q) : true))
+              .filter((a) => a.name.toLowerCase() !== q)
+              .slice(0, 8)
+            if (treffer.length === 0) return null
+            return (
+              <>
+                <p className="hint">Aus dem Artikelstamm übernehmen:</p>
+                {treffer.map((a) => (
+                  <button
+                    key={a.id}
+                    className="opt"
+                    onClick={() => {
+                      tap()
+                      const wg = bogen.warengruppen.find(
+                        (w) => (w.warengruppe || '').trim() === (a.warengruppe || '').trim() && a.warengruppe
+                      )
+                      if (wg) {
+                        patchArt({ artikelName: a.name, warengruppeId: wg.id })
+                        setView({ v: 'art', i: view.i, step: 2 })
+                      } else {
+                        patchArt({ artikelName: a.name })
+                        artNext()
+                      }
+                    }}
+                  >
+                    <div>{a.name}</div>
+                    {a.warengruppe && <div className="opt-sub">{a.warengruppe}</div>}
+                  </button>
+                ))}
+              </>
+            )
+          })()}
           <button className="btn" disabled={!(entry.artikelName || '').trim()} onClick={() => { tap(); artNext() }}>Weiter →</button>
         </div>
       )
@@ -790,6 +948,7 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
               value={entry.verlustEuro}
               onChange={(v) => patchArt(auto ? { verlustEuro: v, verlustProzent: berechnePct(v, wgEuro) } : { verlustEuro: v })}
               defaultNegative
+              autoFocus
             />
           </label>
           {auto ? (

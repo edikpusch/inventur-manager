@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 
 // Zahlen-Eingabe mit Vorzeichen-Umschalter (±).
 // Auf dem Android-Ziffernblock fehlt das Minus – mit dem Button lässt sich
@@ -13,8 +13,14 @@ export default function SignedInput({
   inputMode = 'decimal',
   enterKeyHint = 'next',
   defaultNegative = false,
+  autoFocus = false,
 }) {
   const inputRef = useRef(null)
+
+  // Zifferntastatur beim Öffnen des Screens automatisch aufklappen
+  useEffect(() => {
+    if (autoFocus && inputRef.current) inputRef.current.focus()
+  }, [autoFocus])
   const t = String(value ?? '').trim()
   // Vorzeichen ermitteln: explizit (+/-) hat Vorrang, sonst Default bei leerem Feld
   const isNeg = t.startsWith('-')
