@@ -14,6 +14,7 @@ import {
 } from '../store.js'
 import SignedInput from './SignedInput.jsx'
 import { handleEnterNext } from '../utils/formNav.js'
+import { teilenInfo } from '../utils/exportXlsx.js'
 
 export default function EinstellungenScreen({ go }) {
   const [profil, setProfil] = useState(() => getProfil())
@@ -144,6 +145,32 @@ export default function EinstellungenScreen({ go }) {
             </div>
           ))
         )}
+      </div>
+
+      <div className="card">
+        <h2>Teilen-Diagnose</h2>
+        <p className="muted" style={{ marginTop: 0, whiteSpace: 'pre-line' }}>{teilenInfo(null)}</p>
+        <button
+          className="btn secondary"
+          onClick={() => {
+            // Synchron aufrufen – Test, ob Teilen grundsätzlich erlaubt ist
+            if (typeof navigator.share !== 'function') {
+              alert('Dieser Browser kennt die Teilen-Funktion nicht.')
+              return
+            }
+            navigator.share({ title: 'Test', text: 'Test' }).then(
+              () => alert('✓ Text-Teilen hat funktioniert.'),
+              (e) =>
+                alert(
+                  e && e.name === 'AbortError'
+                    ? '✓ Teilen ging auf – du hast abgebrochen. Teilen ist also erlaubt.'
+                    : `✗ Text-Teilen fehlgeschlagen:\n${(e && e.name) || 'Fehler'}: ${(e && e.message) || ''}`
+                )
+            )
+          }}
+        >
+          Teilen testen (nur Text)
+        </button>
       </div>
 
       <div className="card">

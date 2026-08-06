@@ -405,6 +405,26 @@ export function downloadDatei(file) {
   downloadBlob(file, file.name)
 }
 
+// Kurze Umgebungs-Info zur Eingrenzung von Teilen-Problemen.
+export function teilenInfo(file) {
+  const t = []
+  t.push(`share: ${typeof navigator.share === 'function' ? 'ja' : 'nein'}`)
+  if (typeof navigator.canShare === 'function') {
+    t.push(`canShare(Datei): ${file && navigator.canShare({ files: [file] }) ? 'ja' : 'nein'}`)
+    t.push(`canShare(Text): ${navigator.canShare({ text: 'x' }) ? 'ja' : 'nein'}`)
+  } else {
+    t.push('canShare: nicht vorhanden')
+  }
+  const standalone =
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+    window.navigator.standalone === true
+  t.push(`Modus: ${standalone ? 'installierte App' : 'Browser-Tab'}`)
+  const ua = navigator.userAgent || ''
+  const m = ua.match(/(SamsungBrowser|EdgA|FxiOS|Firefox|CriOS|Chrome)\/[\d.]+/)
+  t.push(`Browser: ${m ? m[0] : 'unbekannt'}`)
+  return t.join('\n')
+}
+
 // Teilt eine BEREITS GEBAUTE Datei.
 //
 // WICHTIG: Diese Funktion ist bewusst NICHT async und muss direkt aus dem
@@ -430,7 +450,8 @@ export function teileDateiJetzt(file, { onGeteilt, onAbbruch, onFallback } = {})
   }
 
   // Ab hier synchron: share() wird noch innerhalb der Nutzer-Geste aufgerufen.
-  navigator.share({ files: [kandidat], title: name }).then(
+  // Bewusst NUR `files` – manche Umgebungen sind bei Zusatzfeldern wählerisch.
+  navigator.share({ files: [kandidat] }).then(
     () => onGeteilt && onGeteilt(),
     (err) => {
       // Abbruch durch den Nutzer -> nichts weiter tun (KEIN Download).
@@ -439,7 +460,10 @@ export function teileDateiJetzt(file, { onGeteilt, onAbbruch, onFallback } = {})
         return
       }
       downloadDatei(file)
-      onFallback && onFallback(`${(err && err.name) || 'Fehler'}: ${(err && err.message) || ''}`)
+      onFallback &&
+        onFallback(
+          `${(err && err.name) || 'Fehler'}: ${(err && err.message) || ''}\n\n${teilenInfo(file)}`
+        )
     }
   )
 }
