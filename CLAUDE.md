@@ -22,6 +22,7 @@ src/
     ErfassungFlow.jsx      ← 4 Schritte als Sub-States (Kopfdaten, Warengruppen, Artikel, Export)
     EintragForm.jsx        ← Warengruppen-/Artikel-Eintrag (mehrere Ursachen, Auto-%)
     ArchivScreen.jsx       ← gespeicherte Bögen: Öffnen / Teilen / Download / Löschen
+    AuswertungScreen.jsx   ← Flop-Ranglisten (WG/Artikel) + Filial-Rangliste
     SignedInput.jsx        ← Zahleneingabe mit ±-Umschalter (defaultNegative)
   data/
     ursachenListe.js       ← feste Ursachen + Maßnahmen (Kategorien A–I)
@@ -75,6 +76,27 @@ src/
 - Zahlen-Screens fokussieren ihr Feld automatisch (`autoFocus`; `SignedInput` hat eine
   eigene `autoFocus`-Prop mit `useEffect`-Fokus). Zusammen mit `inputMode` öffnet Android
   direkt den Ziffernblock.
+
+### Home-Button (permanent)
+- 🏠 rechts in der Kopfzeile auf **allen** Screens (Erfassung, Archiv, Einstellungen, Auswertung).
+- Im Wizard `goHome()`: bricht den laufenden Auto-Save-Timer ab und speichert den Entwurf
+  **sofort** (Erfassung „pausiert"), dann `go('home')`. Fortsetzen über die bestehende Karte.
+- `hatInhalt(bogen)` verhindert leere Entwürfe: ohne Ergebnis und ohne gefüllte
+  Warengruppen/Artikel wird `clearEntwurf()` statt `saveEntwurf()` aufgerufen –
+  sonst erschiene nach jedem Abbruch eine sinnlose „Entwurf fortsetzen"-Karte.
+
+### Auswertung (AuswertungScreen.jsx)
+- Datenquelle: **alle** Bögen aus `im_archiv` (kein Zeitfilter).
+- Bereich umschaltbar: **Bezirk (alle Filialen)** ↔ einzelne Filiale (`filialeId`, Fallback `filialeNummer`).
+- Kennzahl umschaltbar: **Summe €** (Standard) · **Ø %** · **Anzahl Nennungen**.
+- `aggregiere(boegen, listenKey, nameFeld)` fasst Warengruppen bzw. Artikel über alle
+  Bögen nach **Name (case-insensitiv)** zusammen; bei Artikeln wird die Warengruppe aus
+  demselben Bogen (`warengruppeId`) mitgeführt.
+- `sortiere()`: größter Verlust zuerst (€/% aufsteigend, Anzahl absteigend). Nur **Flop**-Listen,
+  bewusst keine Top-Liste – erfasst werden ohnehin nur auffällige (verlustreiche) Positionen.
+- `filialStatistik()`: Ø Differenz `Ergebnis − Vorgabe` je Filiale (Sortierschlüssel, schlechteste
+  zuerst) plus letztes Ergebnis (höchstes `datum`) und Anzahl Inventuren. Nur im Bezirks-Modus.
+- Listen auf 20 Einträge begrenzt.
 
 ### Teilen / Export – exportXlsx.js
 - `exportBogen(bogen)` → Blob bauen + **Download** (bisheriges Verhalten, Dateiname `Inventur_<Nr>_<Datum>.xlsx`).

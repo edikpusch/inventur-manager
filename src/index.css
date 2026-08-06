@@ -405,6 +405,36 @@ button {
   margin-top: 3px;
 }
 
+.home-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 6px 4px;
+  flex: 0 0 auto;
+}
+
+.rang {
+  flex: 0 0 26px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.kennzahl {
+  flex: 0 0 auto;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.kennzahl.neg {
+  color: var(--red);
+}
+
 .kat-head {
   display: flex;
   align-items: center;

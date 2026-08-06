@@ -3,6 +3,7 @@ import HomeScreen from './components/HomeScreen.jsx'
 import EinstellungenScreen from './components/EinstellungenScreen.jsx'
 import ErfassungFlow from './components/ErfassungFlow.jsx'
 import ArchivScreen from './components/ArchivScreen.jsx'
+import AuswertungScreen from './components/AuswertungScreen.jsx'
 
 // Einfacher State-basierter Router (kein react-router nötig).
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
         <ErfassungFlow go={go} bogenId={route.bogenId} resumeEntwurf={route.resumeEntwurf} />
       )}
       {route.name === 'archiv' && <ArchivScreen go={go} />}
+      {route.name === 'auswertung' && <AuswertungScreen go={go} />}
 
       {/* Versionsanzeige unten links – zeigt, welcher Stand geladen ist */}
       <div className="version-badge">{__APP_VERSION__}</div>

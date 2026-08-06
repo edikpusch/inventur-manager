@@ -107,6 +107,13 @@ const isEmptyArt = (e) =>
   !String(e.verlustEuro || '').trim() &&
   (!e.ursachen || e.ursachen.length === 0)
 
+// Hat der Bogen überhaupt Inhalt? Sonst wird kein Entwurf angelegt (sonst
+// erschiene nach jedem Antippen eine leere „Entwurf fortsetzen"-Karte).
+const hatInhalt = (b) =>
+  String(b.ergebnis ?? '').trim() !== '' ||
+  (b.warengruppen || []).some((e) => !isEmptyWg(e)) ||
+  (b.artikel || []).some((e) => !isEmptyArt(e))
+
 function sectionIndex(v) {
   if (v === 'kopf') return 0
   if (v === 'wg' || v === 'wgHub') return 1
@@ -174,9 +181,22 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
       return
     }
     clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => saveEntwurf(bogen, view), 500)
+    saveTimer.current = setTimeout(() => {
+      if (hatInhalt(bogen)) saveEntwurf(bogen, view)
+      else clearEntwurf()
+    }, 500)
     return () => clearTimeout(saveTimer.current)
   }, [bogen, view])
+
+  // Home: Erfassung pausieren – Entwurf sofort sichern (nicht auf den
+  // laufenden Auto-Save warten) und zurück zum Startbildschirm.
+  const goHome = () => {
+    clearTimeout(saveTimer.current)
+    if (hatInhalt(bogen)) saveEntwurf(bogen, view)
+    else clearEntwurf()
+    tap()
+    go('home')
+  }
 
   // Screen-Wechsel: nach oben scrollen; Ursachen-Suche zurücksetzen
   useEffect(() => {
@@ -1041,6 +1061,9 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
       <div className="topbar">
         <button className="back-btn" onClick={back}>‹ Zurück</button>
         <h1>{titel}</h1>
+        <button className="home-btn" onClick={goHome} title="Zum Startbildschirm (Entwurf wird gesichert)">
+          🏠
+        </button>
       </div>
       <div className="step-indicator">
         {[0, 1, 2, 3].map((idx) => (

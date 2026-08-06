@@ -82,6 +82,9 @@ export default function HomeScreen({ go }) {
         <button className="btn secondary" onClick={() => go('archiv')}>
           🗂 Archiv {archivCount > 0 ? `(${archivCount})` : ''}
         </button>
+        <button className="btn secondary" onClick={() => go('auswertung')}>
+          📊 Auswertung
+        </button>
         <button className="btn secondary" onClick={() => go('einstellungen')}>
           ⚙ Einstellungen
         </button>

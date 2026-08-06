@@ -63,6 +63,9 @@ export default function EinstellungenScreen({ go }) {
           ‹ Zurück
         </button>
         <h1>Einstellungen</h1>
+        <button className="home-btn" onClick={() => go('home')} title="Zum Startbildschirm">
+          🏠
+        </button>
       </div>
 
       <div className="card">

@@ -41,6 +41,9 @@ export default function ArchivScreen({ go }) {
           ‹ Zurück
         </button>
         <h1>Archiv</h1>
+        <button className="home-btn" onClick={() => go('home')} title="Zum Startbildschirm">
+          🏠
+        </button>
       </div>
 
       {boegen.length === 0 ? (
