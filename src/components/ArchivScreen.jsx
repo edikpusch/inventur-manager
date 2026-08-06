@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { getArchiv, deleteBogen } from '../store.js'
-import { exportBogen, shareBogen } from '../utils/exportXlsx.js'
+import { exportBogen, shareBogen, buildDatei } from '../utils/exportXlsx.js'
 
 function fmtDatum(iso) {
   if (!iso) return ''
@@ -26,9 +26,23 @@ export default function ArchivScreen({ go }) {
     }
   }
 
+  // Datei schon beim Berühren des Buttons erzeugen, damit das Teilen-Fenster
+  // beim Loslassen sofort startet (sonst blockiert Android das Teilen).
+  const dateien = useRef({})
+  const vorbereiten = (b) => {
+    if (!dateien.current[b.id]) dateien.current[b.id] = buildDatei(b).catch(() => null)
+  }
+
   const handleShare = async (b) => {
+    vorbereiten(b)
+    const datei = await dateien.current[b.id]
     try {
-      await shareBogen(b)
+      const ergebnis = await shareBogen(b, datei)
+      if (ergebnis === 'download') {
+        alert(
+          'Dieser Browser unterstützt kein direktes Teilen von Dateien – die Datei wurde stattdessen heruntergeladen.'
+        )
+      }
     } catch (err) {
       alert('Teilen fehlgeschlagen: ' + err.message)
     }
@@ -66,7 +80,12 @@ export default function ArchivScreen({ go }) {
             <button className="btn small secondary" onClick={() => go('erfassung', { bogenId: b.id })}>
               Öffnen
             </button>
-            <button className="btn small" onClick={() => handleShare(b)}>
+            <button
+              className="btn small"
+              onPointerDown={() => vorbereiten(b)}
+              onClick={() => handleShare(b)}
+              title="Teilen"
+            >
               📤
             </button>
             <button className="btn small secondary" onClick={() => handleExport(b)}>

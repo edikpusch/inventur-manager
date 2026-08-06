@@ -390,16 +390,22 @@ export async function buildDatei(bogen) {
 export async function shareBogen(bogen, prebuilt) {
   const file = prebuilt || (await buildDatei(bogen))
   const name = file.name
+  const daten = { files: [file], title: name }
 
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: name })
-      return 'geteilt'
-    } catch (err) {
-      // Nutzer hat das Teilen-Fenster abgebrochen -> nichts weiter tun
-      // (insbesondere KEIN Download auslösen).
-      if (err && err.name === 'AbortError') return 'abgebrochen'
-      // jeder andere Fehler: auf Download zurückfallen
+  if (navigator.share) {
+    // canShare fehlt in manchen Browsern – dann trotzdem versuchen zu teilen,
+    // statt sofort auf den Download zurückzufallen.
+    const moeglich = typeof navigator.canShare !== 'function' || navigator.canShare(daten)
+    if (moeglich) {
+      try {
+        await navigator.share(daten)
+        return 'geteilt'
+      } catch (err) {
+        // Nutzer hat das Teilen-Fenster abgebrochen -> nichts weiter tun
+        // (insbesondere KEIN Download auslösen).
+        if (err && err.name === 'AbortError') return 'abgebrochen'
+        // jeder andere Fehler: auf Download zurückfallen
+      }
     }
   }
 

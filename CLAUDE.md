@@ -107,7 +107,15 @@ src/
   Wird die Datei erst nach dem Antippen gebaut (ExcelJS braucht einen Moment), verfällt die
   Geste und Android blockiert das Teilen (→ stiller Download). Deshalb baut ErfassungFlow
   die Datei im Abschluss-Screen vorab in `dateiRef` (debounced, invalidiert bei Änderungen)
-  und übergibt sie an `shareBogen`.
+  und übergibt sie an `shareBogen`. Zusätzlich startet `onPointerDown` die Erzeugung als
+  Vorlauf (`dateiPromise`), falls der Vorab-Build noch nicht durch ist.
+- **ArchivScreen** hat dieselbe Vorbereitung: `onPointerDown` → `vorbereiten(b)` legt die
+  Datei in `dateien.current[b.id]` ab, `onClick` teilt sie. Ohne das erschien statt des
+  Teilen-Fensters der Download-Dialog.
+- `canShare` wird nur geprüft, wenn es existiert – fehlt die Funktion, wird das Teilen
+  trotzdem versucht (statt sofort auf Download zu gehen).
+- Endet das Teilen im Download-Fallback, bekommt der Nutzer einen Hinweis – vorher wurde
+  still heruntergeladen, was wie ein Fehler aussah.
 - ErfassungFlow Schritt 4: zwei Buttons – **„📤 Teilen (WhatsApp)"** (`handleShare`) und **„⬇ Nur herunterladen"** (`handleDownload`). Beide `finalize()`n (Archiv + Entwurf leeren) vor dem Teilen/Download.
 - ArchivScreen: pro Bogen zusätzlich ein 📤-Teilen-Button neben dem ⬇-Download.
 - **buildWorkbook / Layout NICHT verändern** – Export-Layout muss identisch bleiben.

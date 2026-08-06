@@ -356,9 +356,11 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
   // Datei im Abschluss-Screen vorab bauen, damit navigator.share() direkt aus
   // dem Antippen heraus startet (sonst blockiert Android das Teilen).
   const dateiRef = useRef(null)
+  const dateiPromise = useRef(null)
   useEffect(() => {
     if (view.v !== 'abschluss') return
     dateiRef.current = null
+    dateiPromise.current = null
     let verworfen = false
     const t = setTimeout(async () => {
       try {
@@ -382,11 +384,24 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.v])
 
+  // Falls die Vorab-Erzeugung noch nicht durch ist: beim Berühren nachziehen
+  const dateiVorbereiten = () => {
+    if (!dateiRef.current && !dateiPromise.current) {
+      dateiPromise.current = buildDatei(bogenFuerExport()).catch(() => null)
+    }
+  }
+
   const handleShare = async () => {
     const f = finalize()
+    const datei = dateiRef.current || (dateiPromise.current ? await dateiPromise.current : null)
     try {
-      const ergebnis = await shareBogen(f, dateiRef.current)
+      const ergebnis = await shareBogen(f, datei)
       if (ergebnis === 'abgebrochen') return // Nutzer hat abgebrochen – hier bleiben
+      if (ergebnis === 'download') {
+        alert(
+          'Dieser Browser unterstützt kein direktes Teilen von Dateien – die Datei wurde stattdessen heruntergeladen.'
+        )
+      }
     } catch (err) {
       alert('Teilen fehlgeschlagen: ' + err.message)
       return
@@ -1024,7 +1039,9 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           <span>Name VL</span>
           <input value={bogen.nameVl} onChange={(e) => setB({ nameVl: e.target.value })} />
         </label>
-        <button className="btn green" onClick={handleShare}>📤 Teilen (WhatsApp)</button>
+        <button className="btn green" onPointerDown={dateiVorbereiten} onClick={handleShare}>
+          📤 Teilen
+        </button>
         <button className="btn secondary" onClick={handleDownload}>⬇ Nur herunterladen</button>
         <div className="nav-buttons">
           <button className="btn secondary" onClick={() => setView({ v: 'artHub' })}>← Zurück</button>
