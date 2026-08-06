@@ -410,7 +410,9 @@ export function teilenInfo(file) {
   const t = []
   t.push(`share: ${typeof navigator.share === 'function' ? 'ja' : 'nein'}`)
   if (typeof navigator.canShare === 'function') {
-    t.push(`canShare(Datei): ${file && navigator.canShare({ files: [file] }) ? 'ja' : 'nein'}`)
+    // Ohne echte Datei mit einer Test-Datei prüfen, sonst wäre die Anzeige irreführend
+    const pruef = file || new File([new Blob(['x'], { type: MIME_XLSX })], 'test.xlsx', { type: MIME_XLSX })
+    t.push(`canShare(Datei): ${navigator.canShare({ files: [pruef] }) ? 'ja' : 'nein'}`)
     t.push(`canShare(Text): ${navigator.canShare({ text: 'x' }) ? 'ja' : 'nein'}`)
   } else {
     t.push('canShare: nicht vorhanden')
