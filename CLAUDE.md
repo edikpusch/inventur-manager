@@ -100,7 +100,17 @@ src/
 
 ### Teilen / Export – exportXlsx.js
 - `exportBogen(bogen)` → Blob bauen + **Download** (bisheriges Verhalten, Dateiname `Inventur_<Nr>_<Datum>.xlsx`).
-- `buildDatei(bogen)` → fertiges `File`-Objekt (kann **vorab** gebaut werden).
+- `buildDatei(bogen)` → fertiges `File`-Objekt (muss **vorab** gebaut werden, s.u.).
+- `teileDateiJetzt(file, {onGeteilt, onAbbruch, onFallback})` → teilt eine **bereits gebaute**
+  Datei. Bewusst **nicht `async`**; ruft `navigator.share()` synchron auf und hängt `.then()` an.
+- **KERNREGEL:** `navigator.share()` muss **synchron im Klick-Handler** laufen. Schon ein
+  einziges `await` davor (z.B. um die Datei erst zu erzeugen) lässt Chrome mit
+  **`NotAllowedError: Permission denied`** abbrechen – die Datei landet dann nur im Download.
+  Deshalb sind `handleShare` in ErfassungFlow und ArchivScreen **nicht async** und die Datei
+  ist immer vorher fertig. Ist sie noch nicht bereit, erscheint ein Hinweis („bitte gleich
+  noch einmal tippen") statt eines stillen Downloads.
+- Dateityp-Kaskade `teilbareDatei()`: xlsx → `vnd.ms-excel` → `octet-stream`; Dateiname bleibt
+  immer `.xlsx`.
 - `shareBogen(bogen, prebuilt)` → **Web Share API**; Rückgabe `'geteilt' | 'abgebrochen' | 'download'`.
   **AbortError** (Nutzer bricht ab) → `'abgebrochen'`, **kein** Download. Sonst Fallback = Download.
 - **WICHTIG:** `navigator.share()` muss unmittelbar aus der Nutzer-Geste heraus laufen.
@@ -142,7 +152,7 @@ src/
 | Eingaben nach App-Wechsel weg | nur bei Export gespeichert | Auto-Save `im_entwurf` (debounced) |
 | ML-Name/Vorgabe bleibt bei Filialwechsel | Fallback auf alten Wert | immer aus neuer Filiale übernehmen |
 | Entwurf taucht nach Export wieder auf | pending Debounce nach `clearEntwurf` | Timer in `finalize()` abbrechen |
-| „Teilen" lädt nur herunter statt zu teilen | Datei erst nach dem Tap gebaut → Nutzer-Geste verfallen | Datei vorab bauen (`dateiRef`) und an `shareBogen` übergeben |
+| „Teilen" lädt nur herunter (`NotAllowedError: Permission denied`) | `await` vor `navigator.share()` → Chrome wertet die Nutzer-Geste als verbraucht | Datei vorab bauen, `handleShare` **nicht async**, `share()` synchron aufrufen (`teileDateiJetzt`) |
 | Abbrechen im Teilen-Dialog löst Download aus | AbortError fiel in den Fallback | bei AbortError früh `'abgebrochen'` zurückgeben |
 
 ## Build / Deploy

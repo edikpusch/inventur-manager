@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { getArchiv, deleteBogen } from '../store.js'
-import { exportBogen, shareBogen, buildDatei } from '../utils/exportXlsx.js'
+import { exportBogen, buildDatei, teileDateiJetzt } from '../utils/exportXlsx.js'
 
 function fmtDatum(iso) {
   if (!iso) return ''
@@ -26,28 +26,60 @@ export default function ArchivScreen({ go }) {
     }
   }
 
-  // Datei schon beim Berühren des Buttons erzeugen, damit das Teilen-Fenster
-  // beim Loslassen sofort startet (sonst blockiert Android das Teilen).
+  // Dateien im Hintergrund vorbereiten. Beim Teilen muss die Datei FERTIG sein:
+  // navigator.share() verlangt eine frische Nutzer-Geste, ein `await` davor
+  // führt zu „NotAllowedError: Permission denied".
   const dateien = useRef({})
+  const laeuft = useRef({})
+
   const vorbereiten = (b) => {
-    if (!dateien.current[b.id]) dateien.current[b.id] = buildDatei(b).catch(() => null)
+    if (dateien.current[b.id] || laeuft.current[b.id]) return
+    laeuft.current[b.id] = true
+    buildDatei(b)
+      .then((f) => {
+        dateien.current[b.id] = f
+      })
+      .catch(() => {})
+      .finally(() => {
+        laeuft.current[b.id] = false
+      })
   }
 
-  const handleShare = async (b) => {
-    vorbereiten(b)
-    const datei = await dateien.current[b.id]
-    try {
-      const ergebnis = await shareBogen(b, datei)
-      if (ergebnis.status === 'download') {
+  // Beim Öffnen des Archivs alle Dateien nacheinander vorbereiten
+  useEffect(() => {
+    let abbruch = false
+    ;(async () => {
+      for (const b of boegen) {
+        if (abbruch) return
+        if (dateien.current[b.id]) continue
+        try {
+          dateien.current[b.id] = await buildDatei(b)
+        } catch {
+          /* einzelne Datei überspringen */
+        }
+      }
+    })()
+    return () => {
+      abbruch = true
+    }
+  }, [boegen])
+
+  // NICHT async – siehe Kommentar oben.
+  const handleShare = (b) => {
+    const datei = dateien.current[b.id]
+    if (!datei) {
+      vorbereiten(b)
+      alert('Die Datei wird gerade vorbereitet – bitte gleich noch einmal auf Teilen tippen.')
+      return
+    }
+    teileDateiJetzt(datei, {
+      onFallback: (grund) => {
         alert(
           'Direktes Teilen hat nicht geklappt – die Datei wurde heruntergeladen.\n\n' +
-            `Grund: ${ergebnis.grund}\n\n` +
-            'Tipp: In Chrome funktioniert das Teilen von Dateien zuverlässig.'
+            `Grund: ${grund}`
         )
-      }
-    } catch (err) {
-      alert('Teilen fehlgeschlagen: ' + err.message)
-    }
+      },
+    })
   }
 
   return (

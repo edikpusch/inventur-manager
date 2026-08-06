@@ -400,34 +400,46 @@ export async function buildDatei(bogen) {
 // braucht dafür einen Moment), verfällt die Geste und Android blockiert das
 // Teilen. Deshalb wird die Datei vorab gebaut und hier als `prebuilt` übergeben.
 //
-// Rückgabe: { status: 'geteilt' | 'abgebrochen' | 'download', grund? }
-// `grund` benennt beim Download-Fallback die konkrete Ursache.
-export async function shareBogen(bogen, prebuilt) {
-  const file = prebuilt || (await buildDatei(bogen))
+// Fertige Datei herunterladen.
+export function downloadDatei(file) {
+  downloadBlob(file, file.name)
+}
+
+// Teilt eine BEREITS GEBAUTE Datei.
+//
+// WICHTIG: Diese Funktion ist bewusst NICHT async und muss direkt aus dem
+// Klick-Handler aufgerufen werden. Chrome verlangt für navigator.share() eine
+// frische Nutzer-Geste – steht davor ein `await` (z.B. um die Datei erst zu
+// erzeugen), schlägt das Teilen mit „NotAllowedError: Permission denied" fehl
+// und die Datei landet nur im Download.
+export function teileDateiJetzt(file, { onGeteilt, onAbbruch, onFallback } = {}) {
   const name = file.name
 
   if (typeof navigator.share !== 'function') {
-    downloadBlob(file, name)
-    return { status: 'download', grund: 'Der Browser kennt die Teilen-Funktion nicht (navigator.share fehlt).' }
+    downloadDatei(file)
+    onFallback && onFallback('Der Browser kennt die Teilen-Funktion nicht (navigator.share fehlt).')
+    return
   }
 
   // Dateityp wählen, den der Browser akzeptiert (xlsx → xls → allgemein).
   const kandidat = teilbareDatei(file, name)
   if (!kandidat) {
-    downloadBlob(file, name)
-    return {
-      status: 'download',
-      grund: 'Der Browser lehnt das Teilen dieser Datei ab (canShare = false für alle Dateitypen).',
-    }
+    downloadDatei(file)
+    onFallback && onFallback('Der Browser lehnt das Teilen dieser Datei ab (canShare = false).')
+    return
   }
 
-  try {
-    await navigator.share({ files: [kandidat], title: name })
-    return { status: 'geteilt' }
-  } catch (err) {
-    // Abbruch durch den Nutzer -> nichts weiter tun (KEIN Download).
-    if (err && err.name === 'AbortError') return { status: 'abgebrochen' }
-    downloadBlob(file, name)
-    return { status: 'download', grund: `${(err && err.name) || 'Fehler'}: ${(err && err.message) || ''}` }
-  }
+  // Ab hier synchron: share() wird noch innerhalb der Nutzer-Geste aufgerufen.
+  navigator.share({ files: [kandidat], title: name }).then(
+    () => onGeteilt && onGeteilt(),
+    (err) => {
+      // Abbruch durch den Nutzer -> nichts weiter tun (KEIN Download).
+      if (err && err.name === 'AbortError') {
+        onAbbruch && onAbbruch()
+        return
+      }
+      downloadDatei(file)
+      onFallback && onFallback(`${(err && err.name) || 'Fehler'}: ${(err && err.message) || ''}`)
+    }
+  )
 }

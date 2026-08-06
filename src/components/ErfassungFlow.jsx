@@ -19,7 +19,12 @@ import {
   getGeloeschteUrsachen,
   loescheUrsache,
 } from '../store.js'
-import { exportBogen, shareBogen, buildDatei, recomputeArtikelProzente } from '../utils/exportXlsx.js'
+import {
+  exportBogen,
+  buildDatei,
+  teileDateiJetzt,
+  recomputeArtikelProzente,
+} from '../utils/exportXlsx.js'
 import { URSACHEN_LISTE } from '../data/ursachenListe.js'
 import { WARENGRUPPEN } from '../data/warengruppenListe.js'
 import SignedInput from './SignedInput.jsx'
@@ -357,23 +362,26 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
   // dem Antippen heraus startet (sonst blockiert Android das Teilen).
   const dateiRef = useRef(null)
   const dateiPromise = useRef(null)
+
+  // Datei im Hintergrund erzeugen und bereitlegen
+  const dateiBauen = () => {
+    if (dateiRef.current || dateiPromise.current) return
+    dateiPromise.current = buildDatei(bogenFuerExport())
+      .then((f) => {
+        dateiRef.current = f
+        dateiPromise.current = null
+      })
+      .catch(() => {
+        dateiPromise.current = null
+      })
+  }
+
   useEffect(() => {
     if (view.v !== 'abschluss') return
     dateiRef.current = null
     dateiPromise.current = null
-    let verworfen = false
-    const t = setTimeout(async () => {
-      try {
-        const f = await buildDatei(bogenFuerExport())
-        if (!verworfen) dateiRef.current = f
-      } catch {
-        dateiRef.current = null
-      }
-    }, 250)
-    return () => {
-      verworfen = true
-      clearTimeout(t)
-    }
+    const t = setTimeout(dateiBauen, 250)
+    return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.v, bogen])
 
@@ -384,31 +392,25 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.v])
 
-  // Falls die Vorab-Erzeugung noch nicht durch ist: beim Berühren nachziehen
-  const dateiVorbereiten = () => {
-    if (!dateiRef.current && !dateiPromise.current) {
-      dateiPromise.current = buildDatei(bogenFuerExport()).catch(() => null)
-    }
-  }
-
-  const handleShare = async () => {
-    const f = finalize()
-    const datei = dateiRef.current || (dateiPromise.current ? await dateiPromise.current : null)
-    try {
-      const ergebnis = await shareBogen(f, datei)
-      if (ergebnis.status === 'abgebrochen') return // Nutzer hat abgebrochen – hier bleiben
-      if (ergebnis.status === 'download') {
-        alert(
-          'Direktes Teilen hat nicht geklappt – die Datei wurde heruntergeladen.\n\n' +
-            `Grund: ${ergebnis.grund}\n\n` +
-            'Tipp: In Chrome funktioniert das Teilen von Dateien zuverlässig.'
-        )
-      }
-    } catch (err) {
-      alert('Teilen fehlgeschlagen: ' + err.message)
+  // NICHT async: navigator.share() muss innerhalb der Nutzer-Geste laufen,
+  // sonst lehnt Chrome mit „NotAllowedError: Permission denied" ab.
+  const handleShare = () => {
+    if (!dateiRef.current) {
+      dateiBauen()
+      alert('Die Datei wird gerade vorbereitet – bitte gleich noch einmal auf „Teilen" tippen.')
       return
     }
-    go('archiv')
+    finalize()
+    teileDateiJetzt(dateiRef.current, {
+      onGeteilt: () => go('archiv'),
+      onFallback: (grund) => {
+        alert(
+          'Direktes Teilen hat nicht geklappt – die Datei wurde heruntergeladen.\n\n' +
+            `Grund: ${grund}`
+        )
+        go('archiv')
+      },
+    })
   }
   const handleDownload = async () => {
     const f = finalize()
@@ -1041,7 +1043,7 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
           <span>Name VL</span>
           <input value={bogen.nameVl} onChange={(e) => setB({ nameVl: e.target.value })} />
         </label>
-        <button className="btn green" onPointerDown={dateiVorbereiten} onClick={handleShare}>
+        <button className="btn green" onPointerDown={dateiBauen} onClick={handleShare}>
           📤 Teilen
         </button>
         <button className="btn secondary" onClick={handleDownload}>⬇ Nur herunterladen</button>
