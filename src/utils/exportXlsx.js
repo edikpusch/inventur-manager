@@ -341,6 +341,13 @@ export function buildWorkbook(bogenInput) {
   return wb
 }
 
+const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+// Browser erlauben nur bestimmte Dateitypen zum Teilen. Wird der echte
+// xlsx-Typ abgelehnt, mit allgemeineren Typen erneut versuchen – die
+// Dateiendung .xlsx bleibt erhalten, die Gegenstelle erkennt sie daran.
+const TEIL_MIMES = [MIME_XLSX, 'application/vnd.ms-excel', 'application/octet-stream']
+
 function dateiname(bogen) {
   return `Inventur_${bogen.filialeNummer || 'Filiale'}_${bogen.datum || ''}.xlsx`
 }
@@ -348,9 +355,18 @@ function dateiname(bogen) {
 async function buildBlob(bogen) {
   const wb = buildWorkbook(bogen)
   const buffer = await wb.xlsx.writeBuffer()
-  return new Blob([buffer], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  })
+  return new Blob([buffer], { type: MIME_XLSX })
+}
+
+// Ersten Dateityp finden, den der Browser zum Teilen akzeptiert.
+// Rückgabe: File oder null, wenn kein Typ akzeptiert wird.
+function teilbareDatei(file, name) {
+  if (typeof navigator.canShare !== 'function') return file
+  for (const type of TEIL_MIMES) {
+    const kandidat = type === file.type ? file : new File([file], name, { type })
+    if (navigator.canShare({ files: [kandidat] })) return kandidat
+  }
+  return null
 }
 
 function downloadBlob(blob, name) {
@@ -374,9 +390,7 @@ export async function exportBogen(bogen) {
 // Teilen ohne Wartezeit direkt aus dem Antippen heraus startet.
 export async function buildDatei(bogen) {
   const blob = await buildBlob(bogen)
-  return new File([blob], dateiname(bogen), {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  })
+  return new File([blob], dateiname(bogen), { type: MIME_XLSX })
 }
 
 // Datei über die Teilen-Funktion des Handys weitergeben (z.B. an WhatsApp).
@@ -386,27 +400,29 @@ export async function buildDatei(bogen) {
 // braucht dafür einen Moment), verfällt die Geste und Android blockiert das
 // Teilen. Deshalb wird die Datei vorab gebaut und hier als `prebuilt` übergeben.
 //
-// Rückgabe: 'geteilt' | 'abgebrochen' | 'download'
 // Rückgabe: { status: 'geteilt' | 'abgebrochen' | 'download', grund? }
 // `grund` benennt beim Download-Fallback die konkrete Ursache.
 export async function shareBogen(bogen, prebuilt) {
   const file = prebuilt || (await buildDatei(bogen))
   const name = file.name
-  const daten = { files: [file], title: name }
 
   if (typeof navigator.share !== 'function') {
     downloadBlob(file, name)
     return { status: 'download', grund: 'Der Browser kennt die Teilen-Funktion nicht (navigator.share fehlt).' }
   }
 
-  // canShare nur prüfen, wenn vorhanden – sonst das Teilen einfach versuchen.
-  if (typeof navigator.canShare === 'function' && !navigator.canShare(daten)) {
+  // Dateityp wählen, den der Browser akzeptiert (xlsx → xls → allgemein).
+  const kandidat = teilbareDatei(file, name)
+  if (!kandidat) {
     downloadBlob(file, name)
-    return { status: 'download', grund: 'Der Browser lehnt das Teilen von .xlsx-Dateien ab (canShare = false).' }
+    return {
+      status: 'download',
+      grund: 'Der Browser lehnt das Teilen dieser Datei ab (canShare = false für alle Dateitypen).',
+    }
   }
 
   try {
-    await navigator.share(daten)
+    await navigator.share({ files: [kandidat], title: name })
     return { status: 'geteilt' }
   } catch (err) {
     // Abbruch durch den Nutzer -> nichts weiter tun (KEIN Download).
