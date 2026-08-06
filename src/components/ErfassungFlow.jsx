@@ -396,10 +396,12 @@ export default function ErfassungFlow({ go, bogenId, resumeEntwurf }) {
     const datei = dateiRef.current || (dateiPromise.current ? await dateiPromise.current : null)
     try {
       const ergebnis = await shareBogen(f, datei)
-      if (ergebnis === 'abgebrochen') return // Nutzer hat abgebrochen – hier bleiben
-      if (ergebnis === 'download') {
+      if (ergebnis.status === 'abgebrochen') return // Nutzer hat abgebrochen – hier bleiben
+      if (ergebnis.status === 'download') {
         alert(
-          'Dieser Browser unterstützt kein direktes Teilen von Dateien – die Datei wurde stattdessen heruntergeladen.'
+          'Direktes Teilen hat nicht geklappt – die Datei wurde heruntergeladen.\n\n' +
+            `Grund: ${ergebnis.grund}\n\n` +
+            'Tipp: In Chrome funktioniert das Teilen von Dateien zuverlässig.'
         )
       }
     } catch (err) {

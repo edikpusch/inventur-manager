@@ -38,9 +38,11 @@ export default function ArchivScreen({ go }) {
     const datei = await dateien.current[b.id]
     try {
       const ergebnis = await shareBogen(b, datei)
-      if (ergebnis === 'download') {
+      if (ergebnis.status === 'download') {
         alert(
-          'Dieser Browser unterstützt kein direktes Teilen von Dateien – die Datei wurde stattdessen heruntergeladen.'
+          'Direktes Teilen hat nicht geklappt – die Datei wurde heruntergeladen.\n\n' +
+            `Grund: ${ergebnis.grund}\n\n` +
+            'Tipp: In Chrome funktioniert das Teilen von Dateien zuverlässig.'
         )
       }
     } catch (err) {

@@ -387,28 +387,31 @@ export async function buildDatei(bogen) {
 // Teilen. Deshalb wird die Datei vorab gebaut und hier als `prebuilt` übergeben.
 //
 // Rückgabe: 'geteilt' | 'abgebrochen' | 'download'
+// Rückgabe: { status: 'geteilt' | 'abgebrochen' | 'download', grund? }
+// `grund` benennt beim Download-Fallback die konkrete Ursache.
 export async function shareBogen(bogen, prebuilt) {
   const file = prebuilt || (await buildDatei(bogen))
   const name = file.name
   const daten = { files: [file], title: name }
 
-  if (navigator.share) {
-    // canShare fehlt in manchen Browsern – dann trotzdem versuchen zu teilen,
-    // statt sofort auf den Download zurückzufallen.
-    const moeglich = typeof navigator.canShare !== 'function' || navigator.canShare(daten)
-    if (moeglich) {
-      try {
-        await navigator.share(daten)
-        return 'geteilt'
-      } catch (err) {
-        // Nutzer hat das Teilen-Fenster abgebrochen -> nichts weiter tun
-        // (insbesondere KEIN Download auslösen).
-        if (err && err.name === 'AbortError') return 'abgebrochen'
-        // jeder andere Fehler: auf Download zurückfallen
-      }
-    }
+  if (typeof navigator.share !== 'function') {
+    downloadBlob(file, name)
+    return { status: 'download', grund: 'Der Browser kennt die Teilen-Funktion nicht (navigator.share fehlt).' }
   }
 
-  downloadBlob(file, name)
-  return 'download'
+  // canShare nur prüfen, wenn vorhanden – sonst das Teilen einfach versuchen.
+  if (typeof navigator.canShare === 'function' && !navigator.canShare(daten)) {
+    downloadBlob(file, name)
+    return { status: 'download', grund: 'Der Browser lehnt das Teilen von .xlsx-Dateien ab (canShare = false).' }
+  }
+
+  try {
+    await navigator.share(daten)
+    return { status: 'geteilt' }
+  } catch (err) {
+    // Abbruch durch den Nutzer -> nichts weiter tun (KEIN Download).
+    if (err && err.name === 'AbortError') return { status: 'abgebrochen' }
+    downloadBlob(file, name)
+    return { status: 'download', grund: `${(err && err.name) || 'Fehler'}: ${(err && err.message) || ''}` }
+  }
 }
